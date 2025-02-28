@@ -1,0 +1,31 @@
+{
+    "names": [
+        "示例姓名1",
+        "示例姓名2",
+        "示例姓名3"
+    ],
+    "groups": [
+        "示例分组1",
+        "示例分组2"
+    ],
+    "egg_cases": [
+        {
+            "name": "示例姓名1",
+            "new_name": "示例姓名1的展示名",
+            "color": "blue",
+            "image": "src/sample_image.png",
+            "voice": "src/sample_bgm.mp3",
+            "s_read_str": "示例姓名1的朗读名"
+        }
+    ],
+    "egg_cases_group": [
+        {
+            "name": "示例组名1",
+            "new_name": "示例组名1的展示名",
+            "color": "blue",
+            "image": "src/sample_image.png",
+            "voice": "src/sample_bgm.mp3",
+            "s_read_str": "示例组名1的朗读名"
+        }
+    ]
+}
