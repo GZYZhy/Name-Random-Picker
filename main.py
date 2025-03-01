@@ -1,6 +1,6 @@
-﻿"""
+"""
 coding: utf-8
-©2025 GZYzhy Publish under Apache License 2.0
+©2019-2024 GZYzhy Publish under Apache License 2.0
 GitHub: https://github.com/gzyzhy/Name-Random-Picker
 """
 
@@ -12,6 +12,15 @@ from tkinter import *
 from PIL import Image, ImageTk
 import sys
 from tkinter import font
+
+def resource_path(relative_path):
+    """获取打包后资源的绝对路径"""
+    try:
+        # PyInstaller创建的临时文件夹路径
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # 屏蔽pygame启动信息
 sys.stdout = open(os.devnull, 'w')
@@ -54,7 +63,7 @@ window_height = 100
 x = 0
 y = screen_height - window_height - 40  # 保留底部边距
 root.geometry(f"{window_width}x{window_height}+{x}+{y}")
-root.iconbitmap('favicon.ico')
+root.iconbitmap(resource_path('favicon.ico'))
 root.title("随机抽签器")
 # 初始隐藏标题栏
 root.overrideredirect(1)  # 替换原来的toolwindow设置
@@ -100,7 +109,7 @@ def show_error_popup(message, close_window=True, auto_close=False):
     :param auto_close: 是否自动关闭弹窗
     """
     error_window = Toplevel(root)
-    error_window.iconbitmap('favicon.ico')
+    error_window.iconbitmap(resource_path('favicon.ico'))
     error_window.title("随机抽签器-提示")
     error_window.transient(root)
     error_window.attributes('-toolwindow', True)
@@ -210,7 +219,7 @@ def show_window(name, image_name, color, voice, s_read, s_read_str, parent_windo
     if image_name != '':
         window_image = Toplevel()
         window_image.withdraw()  # 先隐藏窗口
-        window_image.iconbitmap('favicon.ico')
+        window_image.iconbitmap(resource_path('favicon.ico'))
         window_image.title("随机抽签器")
         window_image.overrideredirect(1)
 
@@ -242,7 +251,7 @@ def show_window(name, image_name, color, voice, s_read, s_read_str, parent_windo
     else:
         window = Toplevel()
         window.withdraw()  # 先隐藏窗口
-        window.iconbitmap('favicon.ico')
+        window.iconbitmap(resource_path('favicon.ico'))
         window.title("随机抽签器")
         window.attributes('-toolwindow', True)
         # Windows系统设置工具窗口样式
@@ -306,7 +315,7 @@ def set_leave_list():
     """
     global leave_list
     leave_window = Toplevel(root)
-    leave_window.iconbitmap('favicon.ico')
+    leave_window.iconbitmap(resource_path('favicon.ico'))
     leave_window.title("随机抽签器 - 请假管理")
     leave_window.transient(root)
     leave_window.attributes('-toolwindow', True)
@@ -399,7 +408,7 @@ def show_about():
     处理"关于"选项的函数，弹出一个窗口展示关于本软件的信息
     """
     about_window = Toplevel(root)
-    about_window.iconbitmap('favicon.ico')
+    about_window.iconbitmap(resource_path('favicon.ico'))
     about_window.title("随机抽签器 - 关于")
     about_window.transient(root)
     about_window.attributes('-toolwindow', True)
@@ -698,7 +707,7 @@ def test():
     if (entry_str in names) or (entry_str in groups):
         test_window = Toplevel()
         test_window.withdraw()
-        test_window.iconbitmap('favicon.ico')
+        test_window.iconbitmap(resource_path('favicon.ico'))
         test_window.title("随机抽签器 - 测试模式")
         test_window.attributes('-toolwindow', True)
         if platform.system() == 'Windows':
@@ -890,16 +899,16 @@ def create_sample_config(parent=None, exit_after=True):
                     "name": "示例姓名1",
                     "new_name": "示例姓名1的展示名",
                     "color": "blue",
-                    "image": "src/sample_image.png",
-                    "voice": "src/sample_bgm.mp3",
+                    "image": "pathimg/sample_image.png",
+                    "voice": "pathaudio/sample_bgm.mp3",
                     "s_read_str": "示例姓名1的朗读名"
                 }],
                 "egg_cases_group": [{
                     "name": "示例组名1",
                     "new_name": "示例组名1的展示名",
                     "color": "blue",
-                    "image": "src/sample_image.png",
-                    "voice": "src/sample_bgm.mp3",
+                    "image": "pathimg/sample_image.png",
+                    "voice": "pathaudio/sample_bgm.mp3",
                     "s_read_str": "示例组名1的朗读名"
                 }]
             }
