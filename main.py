@@ -466,7 +466,7 @@ def show_about():
 3. 配置文件：
    • 支持自定义姓名列表、分组配置
    • 可设置不同分辨率下的自适应显示
-   • 需要UTF-8编码格式"""
+   • 建议使用UTF-8编码格式"""
 
     help_label = Label(main_frame, 
                      text=help_text,
@@ -477,9 +477,8 @@ def show_about():
     # 注意事项
     notice_text = Label(main_frame,
                       text="※ 注意事项 ※\n"
-                           "1. 请勿修改程序目录下的favicon.ico\n"
-                           "2. 图片建议使用PNG格式\n"
-                           "3. 语音文件支持MP3/WAV格式",
+                           "图片建议使用PNG格式\n"
+                           "语音文件支持MP3/WAV格式",
                       foreground="red",
                       justify=LEFT)
     notice_text.grid(row=3, column=0, sticky=W)
@@ -899,17 +898,17 @@ def create_sample_config(parent=None, exit_after=True):
                     "name": "示例姓名1",
                     "new_name": "示例姓名1的展示名",
                     "color": "blue",
-                    "image": "pathimg/sample_image.png",
-                    "voice": "pathaudio/sample_bgm.mp3",
+                    "image": "src/sample_image.png",
+                    "voice": "src/sample_bgm.mp3",
                     "s_read_str": "示例姓名1的朗读名"
                 }],
                 "egg_cases_group": [{
-                    "name": "示例组名1",
-                    "new_name": "示例组名1的展示名",
+                    "name": "示例分组1",
+                    "new_name": "示例分组1的展示名",
                     "color": "blue",
-                    "image": "pathimg/sample_image.png",
-                    "voice": "pathaudio/sample_bgm.mp3",
-                    "s_read_str": "示例组名1的朗读名"
+                    "image": "src/sample_image.png",
+                    "voice": "src/sample_bgm.mp3",
+                    "s_read_str": "示例分组1的朗读名"
                 }]
             }
             with open(file_path, 'w') as f:
