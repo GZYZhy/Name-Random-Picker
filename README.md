@@ -35,7 +35,7 @@ python main.py
 ```
 - 对于Windows
 
-1. 前往Release页面下载预构建二进制包（.exe）
+1. 前往[Release](https://github.com/GZYZhy/Name-Random-Picker/releases)页面下载预构建二进制包（.exe）
 
 2. 将.exe文件放在电脑的软件目录，建议采用`C:\ProgramFiles\RandomPicker`
 
@@ -54,6 +54,12 @@ python main.py
 - 彩蛋特效设置
 - 语音参数调整
 - 界面显示设置
+
+示例配置文件详见[config.json](https://github.com/GZYZhy/Name-Random-Picker/blob/main/config.json)。您可以结合试运行的表现来很容易地理解各个字段的含义。
+
+在程序开始运行时，会自动检测配置文件的正确性。不合法的字段会以弹窗报错来指导您修改。
+
+尽管我们兼容UTF-8、ANSI等多种编码格式，为了兼容性考虑，我们仍然建议您使用UTF-8编码来保存配置文件。
 
 （示例配置文件可通过关于窗口生成）
 
