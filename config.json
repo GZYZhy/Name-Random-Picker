@@ -20,12 +20,12 @@
     ],
     "egg_cases_group": [
         {
-            "name": "示例组名1",
-            "new_name": "示例组名1的展示名",
+            "name": "示例分组1",
+            "new_name": "示例分组1的展示名",
             "color": "blue",
             "image": "src/sample_image.png",
             "voice": "src/sample_bgm.mp3",
-            "s_read_str": "示例组名1的朗读名"
+            "s_read_str": "示例分组1的朗读名"
         }
     ]
 }
