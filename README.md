@@ -1,4 +1,4 @@
-﻿# Name Random Picker 🎲
+# Name Random Picker 🎲
 
 一个基于Python的智能随机抽签工具，支持姓名/分组抽取、特效展示和请假管理
 
@@ -25,12 +25,28 @@
 - 自动窗口大小适配
 
 ## 🚀 快速开始
+- 对于Linux/MacOS
+
 ```bash
 git clone https://github.com/gzyzhy/Name-Random-Picker.git
 cd Name-Random-Picker
 pip install -r requirements.txt
 python main.py
 ```
+- 对于Windows
+
+1. 前往Release页面下载预构建二进制包（.exe）
+
+2. 将.exe文件放在电脑的软件目录，建议采用`C:\ProgramFiles\RandomPicker`
+
+3. 右键.exe文件，选择`发送到->桌面快捷方式`来将软件添加到桌面快捷方式
+
+4. 运行程序，选择生成示例配置文件，在选择目录时建议选择.exe文件所在的目录
+
+5. 按需修改配置文件并保存
+
+6. 再次运行程序，您会看到屏幕左下角的蓝色和红色方块。单击蓝色方块来抽取姓名，单击红色方块来抽取小组，抽取后再次单击来隐藏弹出的名字窗口，右键方块（在教学一体机上可能是长按）来进行其他操作。
+
 
 ## ⚙️ 配置文件
 通过编辑`config.json`可配置：
@@ -50,6 +66,6 @@ python main.py
 5. 发起Pull Request
 
 ## 📄 许可证
-本项目采用 [Apache License 2.0](LICENSE) 授权
-由 @GZYzhy 发表，WuSiyu（not on GitHub）参与开发
-Copyright (c)2025 GZYzhy.
+- 本项目采用 [Apache License 2.0](LICENSE) 授权
+- 由 @GZYzhy 发表，WuSiyu（not on GitHub）参与开发
+- Copyright (c)2025 GZYzhy.
