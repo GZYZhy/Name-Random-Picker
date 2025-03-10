@@ -88,6 +88,7 @@ now_move = False
 # 在全局变量区域添加
 voice_enabled = True
 error_shown = False
+first_read_successful = False  # 添加新变量：标记是否已成功执行过朗读
 
 # 在全局变量区域添加拖动相关变量
 drag_start_x = 0
@@ -143,7 +144,7 @@ def read(name, voice):
     """
     纯本地语音合成方案
     """
-    global voice_enabled, error_shown
+    global voice_enabled, error_shown, first_read_successful
     
     # 彩蛋音频播放不受voice_enabled影响
     if voice and os.path.exists(voice):
@@ -184,17 +185,24 @@ def read(name, voice):
         
         engine.say(name)
         engine.runAndWait()
+        
+        # 如果成功执行，标记为第一次朗读成功
+        if not first_read_successful:
+            first_read_successful = True
 
     except Exception as e:
-        voice_enabled = False
-        if not error_shown:
-            error_shown = True
-            show_error_popup(
-                f"""由于您的系统不支持，姓名朗读功能已禁用。报错：
+        # 只在第一次朗读失败时禁用朗读功能并显示错误
+        if not first_read_successful:
+            voice_enabled = False
+            if not error_shown:
+                error_shown = True
+                show_error_popup(
+                    f"""由于您的系统不支持，姓名朗读功能已禁用。报错：
 {str(e)}
 后续抽取中将禁用姓名朗读功能""", 
-                close_window=False, auto_close=True
-            )
+                    close_window=False, auto_close=True
+                )
+        # 如果不是首次朗读（已有成功记录），则不作任何处理，保持朗读功能启用
 
 
 def show_window(name, image_name, color, voice, s_read, s_read_str, parent_window=None):
