@@ -89,6 +89,8 @@ now_move = False
 voice_enabled = True
 error_shown = False
 first_read_successful = False  # 添加新变量：标记是否已成功执行过朗读
+read_queue = []  # 朗读请求队列
+is_reading = False  # 是否正在朗读
 
 # 在全局变量区域添加拖动相关变量
 drag_start_x = 0
@@ -144,7 +146,7 @@ def read(name, voice):
     """
     纯本地语音合成方案
     """
-    global voice_enabled, error_shown, first_read_successful
+    global voice_enabled, error_shown, first_read_successful, read_queue, is_reading
     
     # 彩蛋音频播放不受voice_enabled影响
     if voice and os.path.exists(voice):
@@ -159,6 +161,28 @@ def read(name, voice):
     if not voice_enabled:
         return
 
+    # 将朗读请求添加到队列
+    read_queue.append(name)
+    
+    # 如果当前没有正在进行的朗读，则开始处理队列
+    if not is_reading:
+        process_read_queue()
+
+def process_read_queue():
+    """处理朗读队列中的请求"""
+    global read_queue, is_reading, first_read_successful, voice_enabled, error_shown
+    
+    # 如果队列为空或朗读已禁用，直接返回
+    if not read_queue or not voice_enabled:
+        is_reading = False
+        return
+    
+    # 标记为正在朗读状态
+    is_reading = True
+    
+    # 获取队列中的第一个朗读请求
+    name = read_queue.pop(0)
+    
     try:
         engine = pyttsx4.init()
         
@@ -183,14 +207,21 @@ def read(name, voice):
         if platform.system() == 'Windows':
             CoInitialize()
         
+        # 移除回调函数设置，改用直接方式
         engine.say(name)
         engine.runAndWait()
         
         # 如果成功执行，标记为第一次朗读成功
         if not first_read_successful:
             first_read_successful = True
+        
+        # 朗读完成后，继续处理队列中的下一个请求
+        root.after(10, process_read_queue)  # 添加小延迟，避免过快占用资源
 
     except Exception as e:
+        # 在朗读失败后，继续处理队列中的下一个请求
+        root.after(10, process_read_queue)
+        
         # 只在第一次朗读失败时禁用朗读功能并显示错误
         if not first_read_successful:
             voice_enabled = False
