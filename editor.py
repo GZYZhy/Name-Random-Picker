@@ -11,6 +11,7 @@ import os
 import sys
 import platform
 import traceback
+import chardet
 from pathlib import Path
 from tkinter import (
     Tk, Frame, Label, Button, Entry, Text, Menu, Toplevel, StringVar,
@@ -47,20 +48,21 @@ class ConfigEditor:
         self.root.title("随机抽签器 - 配置文件编辑器")
         self.root.geometry("800x600")
         self.root.minsize(800, 600)
-        
+    
         # 默认配置文件路径
         self.config_path = os.path.join(os.getcwd(), "config.json")
+        self.current_encoding = 'utf-8'  # 默认编码设置
         self.config_data = self._load_default_config()
         self.is_modified = False
         self.last_save_time = None
-        
+    
         # 创建主界面
         self._create_menu()
         self._create_main_frame()
-        
+    
         # 绑定关闭事件
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
+    
         # 设置图标
         self._set_app_icon()
     
@@ -82,11 +84,39 @@ class ConfigEditor:
         return os.path.join(base_path, relative_path)
     
     def _load_default_config(self):
-        """加载默认配置文件"""
+        """加载默认配置文件，自动检测编码"""
         if os.path.exists(self.config_path):
             try:
-                with open(self.config_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                # 使用二进制模式读取文件
+                with open(self.config_path, 'rb') as f:
+                    content = f.read()
+                
+                    # 使用chardet检测文件编码
+                    detect_result = chardet.detect(content)
+                    encoding = detect_result['encoding']
+                    confidence = detect_result['confidence']
+                
+                    # 记录当前文件的编码
+                    self.current_encoding = encoding
+                
+                    # 如果置信度太低或者检测失败，尝试常见编码
+                    if confidence < 0.7 or not encoding:
+                        for enc in ['utf-8', 'gbk', 'gb2312', 'iso-8859-1']:
+                            try:
+                                decoded_content = content.decode(enc)
+                                self.current_encoding = enc
+                                return json.loads(decoded_content)
+                            except (UnicodeDecodeError, json.JSONDecodeError):
+                                continue
+                    
+                        # 如果所有编码都失败
+                        messagebox.showerror("错误", f"无法识别配置文件编码，请确保文件格式正确")
+                        return dict(CONFIG_TEMPLATE)
+                
+                    # 使用检测到的编码解析JSON
+                    decoded_content = content.decode(encoding)
+                    return json.loads(decoded_content)
+                
             except json.JSONDecodeError:
                 messagebox.showerror("错误", f"配置文件 {self.config_path} 格式错误")
                 return dict(CONFIG_TEMPLATE)
@@ -94,6 +124,8 @@ class ConfigEditor:
                 messagebox.showerror("错误", f"加载配置文件失败: {str(e)}")
                 return dict(CONFIG_TEMPLATE)
         else:
+            # 默认使用UTF-8编码
+            self.current_encoding = 'utf-8'
             return dict(CONFIG_TEMPLATE)
     
     def _create_menu(self):
@@ -127,24 +159,31 @@ class ConfigEditor:
     def _create_main_frame(self):
         """创建主框架和标签页"""
         self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill=BOTH, expand=True, padx=10, pady=10)
-        
+        self.notebook.pack(fill=BOTH, expand=True, padx=10, pady=5)  # 减少底部padding
+    
         # 创建各个标签页
         self.names_frame = self._create_names_tab()
         self.groups_frame = self._create_groups_tab()
         self.egg_personal_frame = self._create_egg_tab("个人")
         self.egg_group_frame = self._create_egg_tab("分组")
-        
+    
         # 添加标签页到notebook
         self.notebook.add(self.names_frame, text="姓名管理")
         self.notebook.add(self.groups_frame, text="分组管理")
         self.notebook.add(self.egg_personal_frame, text="个人彩蛋配置")
         self.notebook.add(self.egg_group_frame, text="分组彩蛋配置")
-        
+    
+        # 添加底部按钮栏
+        button_frame = Frame(self.root)
+        button_frame.pack(fill=X, padx=10, pady=5)
+    
+        save_btn = ttk.Button(button_frame, text="保存配置", command=self.save_config)
+        save_btn.pack(side=RIGHT, padx=5)
+    
         # 创建状态栏
         self.status_bar = Label(self.root, text="就绪", bd=1, relief=SUNKEN, anchor=W)
         self.status_bar.pack(side=BOTTOM, fill=X)
-        
+    
         # 加载初始数据
         self.refresh_all_data()
     
@@ -368,12 +407,12 @@ class ConfigEditor:
         groups_count = len(self.config_data.get('groups', []))
         personal_egg_count = len(self.config_data.get('egg_cases', []))
         group_egg_count = len(self.config_data.get('egg_cases_group', []))
-        
-        status_text = f"当前配置: {os.path.basename(self.config_path)} | 姓名: {names_count} | 分组: {groups_count} | 个人彩蛋: {personal_egg_count} | 分组彩蛋: {group_egg_count}"
-        
+    
+        status_text = f"当前配置: {os.path.basename(self.config_path)} | 姓名: {names_count} | 分组: {groups_count} | 个人彩蛋: {personal_egg_count} | 分组彩蛋: {group_egg_count} | 编码: {self.current_encoding}"
+    
         if self.is_modified:
             status_text += " | [已修改]"
-            
+        
         self.status_bar.config(text=status_text)
     
     def add_item(self, key):
@@ -463,65 +502,40 @@ class ConfigEditor:
             tree = self.groups_tree
             message = "确认要删除选中的分组吗？"
             egg_key = "egg_cases_group"
-            
+        
         selected = tree.selection()
         if not selected:
             messagebox.showinfo("提示", "请先选择一项")
             return
-            
+        
         confirm = messagebox.askyesno("确认删除", message)
         if not confirm:
             return
-            
+        
         item = tree.item(selected[0])
         value = item['values'][1]  # 获取当前值
         index = int(item['values'][0]) - 1  # 转为0-based索引
-        
+    
         # 从配置中删除
         self.config_data[key].pop(index)
-        
-        # 同时删除关联的彩蛋配置
-        self.config_data[egg_key] = [
-            egg for egg in self.config_data.get(egg_key, [])
-            if egg.get('name') != value
-        ]
-        
-        # 刷新显示
-        if key == "names":
-            self.refresh_names_data()
-        else:
-            self.refresh_groups_data()
-            
-        self.refresh_egg_data(egg_key)
-        
-        self.is_modified = True
-        self.update_status_bar()
     
-    def clear_items(self, key):
-        """清空列表"""
-        if key == "names":
-            confirm_msg = "确认要清空所有姓名吗？\n这将同时删除所有相关的个人彩蛋配置。"
-            egg_key = "egg_cases"
-        else:
-            confirm_msg = "确认要清空所有分组吗？\n这将同时删除所有相关的分组彩蛋配置。"
-            egg_key = "egg_cases_group"
-            
-        confirm = messagebox.askyesno("确认清空", confirm_msg)
-        if not confirm:
-            return
-            
-        # 清空配置
-        self.config_data[key] = []
-        self.config_data[egg_key] = []
-        
+        # 同时删除关联的彩蛋配置
+        if egg_key in self.config_data:
+            # 创建一个新列表，不包含要删除的项
+            self.config_data[egg_key] = [
+                egg for egg in self.config_data.get(egg_key, [])
+                if egg.get('name') != value
+            ]
+    
         # 刷新显示
         if key == "names":
             self.refresh_names_data()
         else:
             self.refresh_groups_data()
-            
-        self.refresh_egg_data(egg_key)
         
+        # 刷新彩蛋配置显示
+        self.refresh_egg_data(egg_key)
+    
         self.is_modified = True
         self.update_status_bar()
     
@@ -566,27 +580,31 @@ class ConfigEditor:
     
     def delete_egg_config(self, key):
         """删除彩蛋配置"""
-        tree = self.personal_egg_tree if key == "egg_cases" else self.group_egg_tree
-        message = "确认要删除选中的彩蛋配置吗？"
-        
+        if key == "egg_cases":
+            tree = self.personal_egg_tree
+            message = "确认要删除选中的个人彩蛋配置吗？"
+        else:
+            tree = self.group_egg_tree
+            message = "确认要删除选中的分组彩蛋配置吗？"
+    
         selected = tree.selection()
         if not selected:
             messagebox.showinfo("提示", "请先选择一项")
             return
-            
+        
         confirm = messagebox.askyesno("确认删除", message)
         if not confirm:
             return
-            
+        
         item = tree.item(selected[0])
         name = item['values'][0]  # 获取姓名或分组名
-        
+    
         # 从配置中删除
         self.config_data[key] = [
             egg for egg in self.config_data.get(key, [])
             if egg.get('name') != name
         ]
-        
+    
         # 刷新显示
         self.refresh_egg_data(key)
         self.is_modified = True
@@ -889,46 +907,95 @@ class ConfigEditor:
         self.update_status_bar()
     
     def open_config(self):
-        """打开配置文件"""
+        """打开配置文件，自动检测编码"""
         if self.is_modified:
             confirm = messagebox.askyesnocancel("保存更改", "当前配置已修改，是否保存更改？")
             if confirm is None:
                 return  # 用户取消操作
             elif confirm:
                 self.save_config()
-                
+            
         file_path = filedialog.askopenfilename(
             title="打开配置文件",
             filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
         )
-        
+    
         if file_path:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    self.config_data = json.load(f)
-                    
+                # 读取二进制内容
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                
+                # 检测编码
+                detect_result = chardet.detect(content)
+                encoding = detect_result['encoding']
+                confidence = detect_result['confidence']
+            
+                # 记录当前文件的编码
+                self.current_encoding = encoding
+            
+                # 如果置信度低，尝试不同编码
+                if confidence < 0.7 or not encoding:
+                    # 尝试多种编码
+                    for enc in ['utf-8', 'gbk', 'gb2312', 'iso-8859-1']:
+                        try:
+                            decoded_content = content.decode(enc)
+                            config_data = json.loads(decoded_content)
+                            self.current_encoding = enc
+                            self.config_data = config_data
+                            self.config_path = file_path
+                            self.is_modified = False
+                        
+                            # 刷新显示
+                            self.refresh_all_data()
+                            self.update_status_bar()
+                            self.status_bar.config(text=f"{self.status_bar['text']} (编码: {enc})")
+                            return
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            continue
+                
+                    # 所有编码都失败
+                    messagebox.showerror("错误", "无法识别文件编码，请确保文件是有效的JSON格式")
+                    return
+            
+                # 使用检测到的编码解析JSON
+                decoded_content = content.decode(encoding)
+                self.config_data = json.loads(decoded_content)
                 self.config_path = file_path
                 self.is_modified = False
-                
+            
                 # 刷新显示
                 self.refresh_all_data()
                 self.update_status_bar()
+                self.status_bar.config(text=f"{self.status_bar['text']} (编码: {encoding})")
             except Exception as e:
                 messagebox.showerror("错误", f"加载配置文件失败: {str(e)}")
     
     def save_config(self):
-        """保存配置文件"""
+        """保存配置文件，使用原始编码或UTF-8"""
         try:
             # 检查是否有姓名列表
             if not self.config_data.get('names'):
                 messagebox.showwarning("警告", "姓名列表不能为空")
                 return False
-                
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.config_data, f, indent=4, ensure_ascii=False)
-                
+        
+            # 转换为JSON字符串    
+            json_str = json.dumps(self.config_data, indent=4, ensure_ascii=False)
+        
+            # 使用之前检测到的编码或默认UTF-8
+            encoding = getattr(self, 'current_encoding', 'utf-8')
+        
+            # 如果编码不是常见编码之一，默认使用UTF-8
+            if encoding.lower() not in ['utf-8', 'gbk', 'gb2312', 'iso-8859-1']:
+                encoding = 'utf-8'
+        
+            # 以二进制模式写入
+            with open(self.config_path, 'wb') as f:
+                f.write(json_str.encode(encoding))
+            
             self.is_modified = False
             self.update_status_bar()
+            self.status_bar.config(text=f"{self.status_bar['text']} (编码: {encoding})")
             messagebox.showinfo("成功", f"配置已保存到 {self.config_path}")
             return True
         except Exception as e:
@@ -936,16 +1003,65 @@ class ConfigEditor:
             return False
     
     def save_config_as(self):
-        """另存为配置文件"""
+        """另存为配置文件，可选择编码"""
         file_path = filedialog.asksaveasfilename(
             title="另存为",
             defaultextension=".json",
             filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
         )
-        
+    
         if file_path:
-            self.config_path = file_path
-            return self.save_config()
+            # 显示编码选择对话框
+            encoding_dialog = Toplevel(self.root)
+            encoding_dialog.title("选择文件编码")
+            encoding_dialog.transient(self.root)
+            encoding_dialog.grab_set()
+            encoding_dialog.geometry("300x150")
+        
+            # 主框架
+            main_frame = ttk.Frame(encoding_dialog, padding="10")
+            main_frame.pack(fill=BOTH, expand=True)
+        
+            # 编码选择
+            ttk.Label(main_frame, text="选择保存编码:").pack(pady=(0,5))
+        
+            encoding_var = StringVar(value=getattr(self, 'current_encoding', 'utf-8'))
+            encodings = ['utf-8', 'gbk', 'gb2312', 'iso-8859-1']
+            encoding_combo = ttk.Combobox(main_frame, textvariable=encoding_var, values=encodings)
+            encoding_combo.pack(fill=X, pady=5)
+        
+            # 结果变量
+            result = {"path": file_path, "encoding": None}
+        
+            def on_ok():
+                result["encoding"] = encoding_var.get()
+                encoding_dialog.destroy()
+            
+            # 操作按钮
+            button_frame = ttk.Frame(main_frame)
+            button_frame.pack(pady=10)
+        
+            ok_btn = ttk.Button(button_frame, text="确定", command=on_ok)
+            ok_btn.pack(side=LEFT, padx=5)
+        
+            cancel_btn = ttk.Button(button_frame, text="取消", command=encoding_dialog.destroy)
+            cancel_btn.pack(side=LEFT, padx=5)
+        
+            # 居中显示对话框
+            encoding_dialog.update_idletasks()
+            width = encoding_dialog.winfo_width()
+            height = encoding_dialog.winfo_height()
+            x = (encoding_dialog.winfo_screenwidth() // 2) - (width // 2)
+            y = (encoding_dialog.winfo_screenheight() // 2) - (height // 2)
+            encoding_dialog.geometry(f'+{x}+{y}')
+        
+            # 等待对话框关闭
+            encoding_dialog.wait_window()
+        
+            if result["encoding"]:
+                self.config_path = result["path"]
+                self.current_encoding = result["encoding"]
+                return self.save_config()
         
         return False
     
@@ -1108,64 +1224,74 @@ class ConfigEditor:
             defaultextension=".xlsx",
             filetypes=[("Excel文件", "*.xlsx"), ("所有文件", "*.*")]
         )
-        
+    
         if not file_path:
             return
-        
+    
         try:
-            # 创建DataFrame
-            data = {
-                "姓名": self.config_data.get('names', [])
-            }
-            
-            if self.config_data.get('groups'):
-                data["分组"] = self.config_data.get('groups', [])
-                
-            # 个人彩蛋信息
-            egg_data = []
-            for egg in self.config_data.get('egg_cases', []):
-                egg_data.append({
-                    '姓名': egg.get('name', ''),
-                    '显示名': egg.get('new_name', ''),
-                    '颜色': REVERSE_COLOR_MAP.get(egg.get('color', ''), ''),
-                    '图片路径': egg.get('image', ''),
-                    '语音路径': egg.get('voice', ''),
-                    '朗读文本': egg.get('s_read_str', '')
-                })
-                
-            # 分组彩蛋信息
-            group_egg_data = []
-            for egg in self.config_data.get('egg_cases_group', []):
-                group_egg_data.append({
-                    '分组名': egg.get('name', ''),
-                    '显示名': egg.get('new_name', ''),
-                    '颜色': REVERSE_COLOR_MAP.get(egg.get('color', ''), ''),
-                    '图片路径': egg.get('image', ''),
-                    '语音路径': egg.get('voice', ''),
-                    '朗读文本': egg.get('s_read_str', '')
-                })
-            
+            # 检查是否有数据可以导出
+            if not self.config_data.get('names') and not self.config_data.get('groups'):
+                messagebox.showwarning("警告", "没有数据可以导出，请先添加姓名或分组")
+                return
+        
             # 创建Excel写入器
-            with pd.ExcelWriter(file_path) as writer:
-                # 写入姓名表
-                df_names = pd.DataFrame(data)
-                df_names.to_excel(writer, sheet_name='姓名和分组', index=False)
-                
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                # 写入姓名表 - 单独处理姓名和分组
+                names_list = self.config_data.get('names', [])
+                if names_list:
+                    df_names = pd.DataFrame({"姓名": names_list})
+                    df_names.to_excel(writer, sheet_name='姓名列表', index=False)
+            
+                # 单独写入分组表
+                groups_list = self.config_data.get('groups', [])
+                if groups_list:
+                    df_groups = pd.DataFrame({"分组": groups_list})
+                    df_groups.to_excel(writer, sheet_name='分组列表', index=False)
+            
                 # 写入个人彩蛋表
+                egg_data = []
+                for egg in self.config_data.get('egg_cases', []):
+                    egg_data.append({
+                        '姓名': egg.get('name', ''),
+                        '显示名': egg.get('new_name', ''),
+                        '颜色': REVERSE_COLOR_MAP.get(egg.get('color', ''), ''),
+                        '图片路径': egg.get('image', ''),
+                        '语音路径': egg.get('voice', ''),
+                        '朗读文本': egg.get('s_read_str', '')
+                    })
+                
                 if egg_data:
                     df_egg = pd.DataFrame(egg_data)
                     df_egg.to_excel(writer, sheet_name='个人彩蛋', index=False)
-                
+            
                 # 写入分组彩蛋表
+                group_egg_data = []
+                for egg in self.config_data.get('egg_cases_group', []):
+                    group_egg_data.append({
+                        '分组名': egg.get('name', ''),
+                        '显示名': egg.get('new_name', ''),
+                        '颜色': REVERSE_COLOR_MAP.get(egg.get('color', ''), ''),
+                        '图片路径': egg.get('image', ''),
+                        '语音路径': egg.get('voice', ''),
+                        '朗读文本': egg.get('s_read_str', '')
+                    })
+                
                 if group_egg_data:
                     df_group_egg = pd.DataFrame(group_egg_data)
                     df_group_egg.to_excel(writer, sheet_name='分组彩蛋', index=False)
             
+                # 如果到此处都没有写入任何工作表，添加一个空的默认工作表
+                if not (names_list or groups_list or egg_data or group_egg_data):
+                    pd.DataFrame().to_excel(writer, sheet_name='空数据', index=False)
+        
             messagebox.showinfo("导出成功", f"配置已导出到 {file_path}")
-            
+        
         except Exception as e:
-            messagebox.showerror("错误", f"导出到Excel失败: {str(e)}")
-    
+            # 显示详细的错误信息以便调试
+            error_msg = str(e)
+            traceback_info = traceback.format_exc()
+            messagebox.showerror("错误", f"导出到Excel失败: {error_msg}\n\n{traceback_info}")
+
     def create_excel_template(self):
         """生成Excel模板"""
         file_path = filedialog.asksaveasfilename(
