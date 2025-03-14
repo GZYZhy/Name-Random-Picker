@@ -57,16 +57,23 @@ def ensure_single_instance():
     try:
         # 创建一个socket并绑定到本地端口
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 添加套接字重用选项，解决端口释放后立即重用的问题
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # 设置非阻塞模式
+        sock.setblocking(False)
         sock.bind(('localhost', port))
+        # 开始监听，这一步很重要，确保端口真正被占用
+        sock.listen(1)
         # 如果成功绑定，说明是第一个实例
         # 保持socket打开以维持端口占用
         # 将socket保存为全局变量以防止被垃圾回收
         global single_instance_socket
         single_instance_socket = sock
+        print("程序启动成功，未检测到其他实例。")
         return True
-    except socket.error:
+    except socket.error as e:
         # 如果端口已被占用，说明已有一个实例在运行
-        print("程序已经在运行，此实例将关闭。")
+        print(f"程序已经在运行，此实例将关闭。错误信息: {e}")
         # 可以选择通知用户
         if platform.system() == "Windows":
             ctypes.windll.user32.MessageBoxW(0, "程序已经在运行中", "提示", 0)
@@ -436,7 +443,6 @@ def set_leave_list():
                         foreground="blue",
                         anchor=W)
     instructions.pack(side=LEFT, expand=True, fill=X)
-
     # 保存按钮（移动到说明文字右侧）
     save_btn = Button(header_frame, 
                     text="保存", 
@@ -724,6 +730,7 @@ def openwindow_group():
     """
     打开抽取分组窗口的函数
     """
+    global is_dragging
     global is_dragging
     if is_dragging:
         is_dragging = False
@@ -1115,6 +1122,11 @@ def maintain_topmost():
 if tray_icon:
         tray_icon.stop()
 if __name__ == "__main__":
+    # 首先检查是否已有实例在运行
+    if not ensure_single_instance():
+        print("检测到已有程序实例在运行，当前实例将退出。")
+        sys.exit(0)
+    
     config_path = "config.json"
     
     # 修改后的主程序入口
