@@ -66,6 +66,41 @@ class ConfigEditor:
         # 设置图标
         self._set_app_icon()
     
+    def clear_items(self, key):
+        """清空指定列表"""
+        if key == "names":
+            tree = self.names_tree
+            message = "确认要清空所有姓名吗？"
+            egg_key = "egg_cases"
+        else:
+            tree = self.groups_tree
+            message = "确认要清空所有分组吗？"
+            egg_key = "egg_cases_group"
+    
+        # 确认对话框
+        confirm = messagebox.askyesno("确认清空", message)
+        if not confirm:
+            return
+    
+        # 清空列表
+        self.config_data[key] = []
+    
+        # 清空相关的彩蛋配置
+        if egg_key in self.config_data:
+            self.config_data[egg_key] = []
+    
+        # 刷新显示
+        if key == "names":
+            self.refresh_names_data()
+        else:
+            self.refresh_groups_data()
+    
+        # 刷新彩蛋配置显示
+        self.refresh_egg_data(egg_key)
+    
+        self.is_modified = True
+        self.update_status_bar()
+
     def _set_app_icon(self):
         """设置应用图标"""
         try:
@@ -976,7 +1011,9 @@ class ConfigEditor:
         try:
             # 检查是否有姓名列表
             if not self.config_data.get('names'):
-                messagebox.showwarning("警告", "姓名列表不能为空")
+                messagebox.showwarning("警告", "姓名列表不能为空，请添加至少一个姓名后再保存")
+                # 自动切换到姓名管理标签页
+                self.notebook.select(0)
                 return False
         
             # 转换为JSON字符串    
@@ -996,7 +1033,7 @@ class ConfigEditor:
             self.is_modified = False
             self.update_status_bar()
             self.status_bar.config(text=f"{self.status_bar['text']} (编码: {encoding})")
-            messagebox.showinfo("成功", f"配置已保存到 {self.config_path}")
+            messagebox.showinfo("成功", f"配置已保存到 {self.config_path}    如果是正在使用的配置，请右键抽签器主窗口-重读配置以使改动生效！")
             return True
         except Exception as e:
             messagebox.showerror("错误", f"保存配置文件失败: {str(e)}")
@@ -1508,6 +1545,17 @@ class ConfigEditor:
     def on_closing(self):
         """窗口关闭事件处理"""
         if self.is_modified:
+            # 检查姓名列表是否为空
+            if not self.config_data.get('names'):
+                result = messagebox.askyesno("警告", 
+                    "姓名列表为空！这可能导致抽签器无法正常工作。\n\n是否继续退出而不保存？")
+                if not result:
+                    self.notebook.select(0)  # 切换到姓名管理标签
+                    return
+                self.root.destroy()
+                return
+            
+            # 正常询问是否保存
             confirm = messagebox.askyesnocancel("保存更改", "配置已修改，是否保存更改？")
             if confirm is None:
                 return  # 用户取消关闭
@@ -1515,7 +1563,6 @@ class ConfigEditor:
                 saved = self.save_config()
                 if not saved:
                     return  # 保存失败，取消关闭
-        
         self.root.destroy()
 
 def main():

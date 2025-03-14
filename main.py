@@ -11,7 +11,11 @@ import threading
 from tkinter import *
 from PIL import Image, ImageTk
 import sys
+import platform
+import subprocess
+import socket
 from tkinter import font
+from pystray import Icon, Menu as PystrayMenu, MenuItem
 
 def resource_path(relative_path):
     """获取打包后资源的绝对路径"""
@@ -42,6 +46,54 @@ import platform
 from comtypes import CoInitialize
 import chardet
 from tkinter import messagebox, filedialog, simpledialog
+
+def ensure_single_instance():
+    """
+    确保程序只有一个实例在运行，如果检测到已有实例，则退出当前实例
+    """
+    # 端口可以是任意未使用的端口
+    port = 28758
+    
+    try:
+        # 创建一个socket并绑定到本地端口
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(('localhost', port))
+        # 如果成功绑定，说明是第一个实例
+        # 保持socket打开以维持端口占用
+        # 将socket保存为全局变量以防止被垃圾回收
+        global single_instance_socket
+        single_instance_socket = sock
+        return True
+    except socket.error:
+        # 如果端口已被占用，说明已有一个实例在运行
+        print("程序已经在运行，此实例将关闭。")
+        # 可以选择通知用户
+        if platform.system() == "Windows":
+            ctypes.windll.user32.MessageBoxW(0, "程序已经在运行中", "提示", 0)
+        return False
+    
+def edit_config():
+    """
+    编辑配置文件的函数
+    尝试运行editor.exe，如果不存在则执行editor.py
+    """
+    editor_exe = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "editor.exe")
+    editor_py = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "editor.py")
+    
+    if os.path.exists(editor_exe):
+        # 使用子进程执行editor.exe
+        subprocess.Popen([editor_exe])
+    elif os.path.exists(editor_py):
+        # 使用python执行editor.py
+        if platform.system() == "Windows":
+            subprocess.Popen([sys.executable, editor_py])
+        else:
+            subprocess.Popen(['python3', editor_py])
+    else:
+        # 如果都不存在，提示用户
+        print("未找到editor.exe或editor.py文件")
+        messagebox.showerror("错误", "未找到editor.exe或editor.py文件，请检查安装完整性")
+
 
 # 全局变量初始化
 root = Tk()
@@ -530,6 +582,11 @@ def show_about():
                       text="生成示例配置", 
                       command=lambda: create_sample_config(about_window, exit_after=False))
     gen_button.pack(side=LEFT, padx=5)
+
+    gen_button = Button(button_frame, 
+                      text="编辑配置", 
+                      command=edit_config)
+    gen_button.pack(side=LEFT, padx=5)
     
     ok_button = Button(button_frame, 
                      text="确定", 
@@ -984,6 +1041,59 @@ def select_config_file():
     else:
         show_error_popup("已取消配置文件选择")
         os._exit(0)
+def create_tray_icon(root, config_path):
+    """
+    创建系统托盘图标
+    :param root: Tkinter根窗口
+    """
+    # 加载图标
+    icon_path = resource_path('favicon.ico')
+    
+    def exit_action(icon):
+        close(root)
+    
+    def toggle_window(icon):
+        if root.winfo_viewable():
+            root.withdraw()
+        else:
+            root.deiconify()
+            root.attributes('-topmost', True)
+            root.update()
+            root.attributes('-topmost', False)
+    
+    # 添加一个调度器函数，将操作转发到主线程
+    def schedule_to_main_thread(func):
+        def wrapper(icon):
+            root.after(0, func)  # 使用 after 方法在主线程中执行函数
+        return wrapper
+    
+    # 创建独立的系统托盘菜单项
+    menu_items = [
+        MenuItem('显示/隐藏', toggle_window),
+        MenuItem('重置个人', schedule_to_main_thread(reset)),
+        MenuItem('重置小组', schedule_to_main_thread(reset_group)),
+        # 重读配置函数也需要包装
+        MenuItem('重读配置', schedule_to_main_thread(lambda: read_config(config_path))),
+        MenuItem('编辑配置', schedule_to_main_thread(edit_config)),
+        MenuItem('关于', schedule_to_main_thread(show_about)),
+        MenuItem('退出', exit_action)
+    ]
+    
+    # 加载图标图像
+    image = Image.open(icon_path)
+    
+    # 创建托盘图标
+    tray_icon = Icon(
+        "RandomPicker",
+        image,
+        "随机抽签器",
+        PystrayMenu(*menu_items)
+    )
+    
+    # 在新线程中运行托盘图标
+    threading.Thread(target=tray_icon.run, daemon=True).start()
+    
+    return tray_icon
 
 menu = Menu(root)
 menu.add_cascade(label='测试模式', command=test)
@@ -993,15 +1103,17 @@ menu.add_cascade(label='重置小组', command=reset_group)
 menu.add_cascade(label='关闭彩蛋', command=egg_set)
 menu.add_cascade(label='请假名单', command=set_leave_list)
 menu.add_cascade(label='重读配置', command=lambda:read_config(config_path))
+menu.add_cascade(label='编辑配置', command=edit_config)
 menu.add_cascade(label='关于', command=show_about)
 menu.add_cascade(label='退出', command=lambda: close(root))
 showPopoutMenu(button_name, menu)
-
+tray_icon = create_tray_icon(root, config_path)
 # 添加定期置顶维持（在mainloop之前）
 def maintain_topmost():
     root.attributes('-topmost', True)
     root.after(1000, maintain_topmost)
-
+if tray_icon:
+        tray_icon.stop()
 if __name__ == "__main__":
     config_path = "config.json"
     
