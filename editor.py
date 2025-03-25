@@ -1,6 +1,6 @@
 """
 coding: utf-8
-©2024 GZYzhy Publish under Apache License 2.0
+©2025 GZYzhy Publish under Apache License 2.0
 GitHub: https://github.com/gzyzhy/Name-Random-Picker
 
 随机抽签器 - 配置文件编辑器
@@ -1402,7 +1402,7 @@ class ConfigEditor:
 - 语音支持MP3和WAV格式
 - 导入时，会自动检查数据合法性
 
-© 随机抽签器 v3.0
+© 2025 GZYZhy https://github.com/gzyzhy/Name-Random-Picker
 """
             with open(instructions_path, 'w', encoding='utf-8') as f:
                 f.write(instructions)
@@ -1523,7 +1523,7 @@ class ConfigEditor:
         title_label.pack(pady=(0, 10))
         
         # 版本信息
-        version_label = ttk.Label(main_frame, text="版本: v3.0")
+        version_label = ttk.Label(main_frame, text="版本: v4.0.0")
         version_label.pack(anchor=W)
         
         # 版权信息
