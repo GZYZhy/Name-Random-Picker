@@ -26,16 +26,8 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-# 屏蔽pygame启动信息
-sys.stdout = open(os.devnull, 'w')
-sys.stderr = open(os.devnull, 'w')
-
 import pygame
 from pygame import mixer
-
-# 恢复标准输出
-sys.stdout = sys.__stdout__
-sys.stderr = sys.__stderr__
 
 # 初始化音频模块
 pygame.init()
@@ -523,7 +515,7 @@ def show_about():
 
     # 软件信息部分
     about_text = Label(main_frame, 
-        text="随机抽签器 v3.0\n"
+        text="随机抽签器 v4.0.0\n"
              "©2019-2024 GZYzhy\n"
              "遵循 Apache 2.0 许可协议发布",
         justify=LEFT)
