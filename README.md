@@ -71,6 +71,8 @@ V4.0.0新特性：现在可通过右键程序主窗口-编辑配置实现可视�
 5. 发起Pull Request
 
 ## 📄 许可证
+- 项目免费开源，不存在任何盈利现象。
+- 项目中可能引用了部分网络公开图片作为示例图，如有侵权请提交Issue来要求删除。
 - 本项目采用 [Apache License 2.0](LICENSE) 授权
 - 由 @GZYzhy 发表，WuSiyu（not on GitHub）参与开发
 - Copyright (c)2025 GZYzhy.
