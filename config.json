@@ -27,5 +27,6 @@
             "voice": "src/sample_bgm.mp3",
             "s_read_str": "示例分组1的朗读名"
         }
-    ]
+    ],
+    "auto_close": true
 }

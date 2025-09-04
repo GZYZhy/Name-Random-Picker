@@ -135,6 +135,8 @@ egg = True
 have_img = False
 leave_list = []
 now_move = False
+auto_close_enabled = True  # 自动关闭功能默认开启（会从配置文件读取）
+auto_close_timer = None  # 自动关闭定时器
 
 # 在全局变量区域添加
 voice_enabled = True
@@ -311,6 +313,30 @@ def process_read_queue():
         # 如果不是首次朗读（已有成功记录），则不作任何处理，保持朗读功能启用
 
 
+def auto_close_windows():
+    """
+    自动关闭展示窗口的函数
+    """
+    global have_w, window, window_image, have_img, auto_close_timer
+
+    # 取消定时器
+    if auto_close_timer is not None:
+        root.after_cancel(auto_close_timer)
+        auto_close_timer = None
+
+    # 关闭图片窗口（如果有）
+    if have_img and window_image.winfo_exists():
+        window_image.destroy()
+        have_img = False
+
+    # 关闭名字窗口（如果有）
+    if have_w and window.winfo_exists():
+        window.destroy()
+        have_w = False
+
+    print("自动关闭展示窗口")
+
+
 def show_window(name, image_name, color, voice, s_read, s_read_str, parent_window=None):
     """
     显示包含名字等信息的窗口函数
@@ -321,7 +347,7 @@ def show_window(name, image_name, color, voice, s_read, s_read_str, parent_windo
     :param s_read: 是否特殊读取
     :param s_read_str: 特殊读取时的名字字符串
     """
-    global have_w, window, window_image, have_img
+    global have_w, window, window_image, have_img, auto_close_enabled, auto_close_timer
 
     print(name)
 
@@ -422,6 +448,14 @@ def show_window(name, image_name, color, voice, s_read, s_read_str, parent_windo
     thr_read.start()
     have_w = True
     window.deiconify()  # 完成所有设置后显示窗口
+
+    # 设置自动关闭定时器（如果功能开启且不是测试模式）
+    if auto_close_enabled and parent_window is None:
+        # 先取消之前的定时器（如果有）
+        if auto_close_timer is not None:
+            root.after_cancel(auto_close_timer)
+        # 设置10秒后自动关闭
+        auto_close_timer = root.after(10000, auto_close_windows)
 
 def set_leave_list():
     """
@@ -709,7 +743,7 @@ def openwindow():
     """
     打开抽取名字窗口的函数
     """
-    global is_dragging
+    global is_dragging, auto_close_timer
     if is_dragging:
         is_dragging = False
         return
@@ -725,6 +759,10 @@ def openwindow():
     global have_img
 
     if have_w:
+        # 手动关闭时取消自动关闭定时器
+        if auto_close_timer is not None:
+            root.after_cancel(auto_close_timer)
+            auto_close_timer = None
         if have_img:
             window_image.destroy()
             have_img = False
@@ -748,7 +786,7 @@ def openwindow_group():
     """
     打开抽取分组窗口的函数
     """
-    global is_dragging
+    global is_dragging, auto_close_timer
     global is_dragging
     if is_dragging:
         is_dragging = False
@@ -760,6 +798,10 @@ def openwindow_group():
     global groups_use
 
     if have_w:
+        # 手动关闭时取消自动关闭定时器
+        if auto_close_timer is not None:
+            root.after_cancel(auto_close_timer)
+            auto_close_timer = None
         window.destroy()
         have_w = False
         return
@@ -807,6 +849,22 @@ def egg_set():
 
     egg = not egg
     print(egg)
+
+
+def auto_close_set():
+    """
+    设置自动关闭开关的函数
+    """
+    global auto_close_enabled
+    global menu
+
+    if auto_close_enabled:
+        menu.entryconfig('关闭自动关闭', label='开启自动关闭')
+    else:
+        menu.entryconfig('开启自动关闭', label='关闭自动关闭')
+
+    auto_close_enabled = not auto_close_enabled
+    print(f"自动关闭功能: {'开启' if auto_close_enabled else '关闭'}")
 
 
 def close(window,close_window=True):
@@ -964,7 +1022,7 @@ def read_config(path):
     读取JSON配置文件的函数
     :param path: 配置文件路径
     """
-    global names, groups, config, leave_list
+    global names, groups, config, leave_list, auto_close_enabled
     try:
         with open(path, 'rb') as f:
             rawdata = f.read()
@@ -984,6 +1042,16 @@ def read_config(path):
                 names_use = names[:]
                 groups = config['groups']
                 groups_use = groups[:]
+
+                # 读取自动关闭设置（可选字段，默认值为True）
+                if 'auto_close' in config:
+                    if isinstance(config['auto_close'], bool):
+                        auto_close_enabled = config['auto_close']
+                    else:
+                        print(f"警告：配置文件中的auto_close字段值无效({config['auto_close']})，使用默认值True")
+                else:
+                    auto_close_enabled = True  # 默认开启
+                    print("配置文件中未找到auto_close字段，使用默认值True")
                 # 修改启动提示调用方式
                 show_error_popup(
                     f"程序已开始运行，请使用屏幕左下角的方块按钮来抽取！\n当前使用的配置文件：{os.path.abspath(path)}",
@@ -1015,6 +1083,7 @@ def create_sample_config(parent=None, exit_after=True):
             sample_config = {
                 "names": ["示例姓名1", "示例姓名2", "示例姓名3"],
                 "groups": ["示例分组1", "示例分组2"],
+                "auto_close": True,  # 自动关闭功能开关，默认开启
                 "egg_cases": [{
                     "name": "示例姓名1",
                     "new_name": "示例姓名1的展示名",
@@ -1126,6 +1195,7 @@ menu.add_cascade(label='移动窗口', command=move)  # 初始标签为"移动�
 menu.add_cascade(label='重置个人', command=reset)
 menu.add_cascade(label='重置小组', command=reset_group)
 menu.add_cascade(label='关闭彩蛋', command=egg_set)
+menu.add_cascade(label='关闭自动关闭', command=auto_close_set)
 menu.add_cascade(label='请假名单', command=set_leave_list)
 menu.add_cascade(label='重读配置', command=lambda:read_config(config_path))
 menu.add_cascade(label='编辑配置', command=edit_config)

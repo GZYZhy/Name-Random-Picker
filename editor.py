@@ -26,6 +26,7 @@ import shutil
 CONFIG_TEMPLATE = {
     "names": [],
     "groups": [],
+    "auto_close": True,
     "egg_cases": [],
     "egg_cases_group": []
 }
@@ -199,12 +200,14 @@ class ConfigEditor:
         # 创建各个标签页
         self.names_frame = self._create_names_tab()
         self.groups_frame = self._create_groups_tab()
+        self.settings_frame = self._create_settings_tab()
         self.egg_personal_frame = self._create_egg_tab("个人")
         self.egg_group_frame = self._create_egg_tab("分组")
-    
+
         # 添加标签页到notebook
         self.notebook.add(self.names_frame, text="姓名管理")
         self.notebook.add(self.groups_frame, text="分组管理")
+        self.notebook.add(self.settings_frame, text="系统设置")
         self.notebook.add(self.egg_personal_frame, text="个人彩蛋配置")
         self.notebook.add(self.egg_group_frame, text="分组彩蛋配置")
     
@@ -267,7 +270,56 @@ class ConfigEditor:
         self.names_tree.bind('<Double-1>', lambda event: self.edit_item("names"))
         
         return frame
-    
+
+    def _create_settings_tab(self):
+        """创建系统设置标签页"""
+        frame = ttk.Frame(self.notebook)
+
+        # 设置框架
+        settings_frame = ttk.LabelFrame(frame, text="自动关闭设置", padding=20)
+        settings_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
+
+        # 自动关闭开关
+        auto_close_label = ttk.Label(settings_frame,
+                                   text="自动关闭功能：",
+                                   font=('微软雅黑', 10))
+        auto_close_label.pack(anchor=W, pady=(0, 10))
+
+        # 创建布尔变量
+        self.auto_close_var = BooleanVar()
+
+        # 创建复选框
+        auto_close_check = ttk.Checkbutton(settings_frame,
+                                         text="开启抽取后10秒自动关闭窗口功能",
+                                         variable=self.auto_close_var,
+                                         command=self._on_auto_close_changed)
+        auto_close_check.pack(anchor=W, pady=(0, 5))
+
+        # 说明文本
+        desc_text = """说明：
+• 开启后，抽取姓名/分组后显示窗口会在10秒后自动关闭
+• 10秒内再次点击抽取按钮可提前关闭窗口
+• 10秒后点击抽取按钮是新的一次抽取
+• 此设置不会影响测试模式的窗口（测试窗口不会自动关闭）
+• 运行时可以通过右键菜单临时开启/关闭此功能"""
+
+        desc_label = ttk.Label(settings_frame,
+                             text=desc_text,
+                             justify=LEFT,
+                             wraplength=400)
+        desc_label.pack(anchor=W, pady=(20, 0))
+
+        return frame
+
+    def _on_auto_close_changed(self):
+        """处理自动关闭复选框状态变化"""
+        # 更新配置数据
+        self.config_data['auto_close'] = self.auto_close_var.get()
+
+        # 更新状态栏
+        status = "开启" if self.auto_close_var.get() else "关闭"
+        self.status_bar.config(text=f"自动关闭功能已{status}")
+
     def _create_groups_tab(self):
         """创建分组管理标签页"""
         frame = ttk.Frame(self.notebook)
@@ -392,6 +444,7 @@ class ConfigEditor:
         """刷新所有数据显示"""
         self.refresh_names_data()
         self.refresh_groups_data()
+        self.refresh_settings_data()
         self.refresh_egg_data("egg_cases")
         self.refresh_egg_data("egg_cases_group")
         self.update_status_bar()
@@ -415,7 +468,13 @@ class ConfigEditor:
         # 插入新数据
         for i, group in enumerate(self.config_data.get('groups', []), start=1):
             self.groups_tree.insert('', END, values=(i, group))
-    
+
+    def refresh_settings_data(self):
+        """刷新系统设置数据"""
+        # 设置auto_close复选框的状态
+        auto_close_value = self.config_data.get('auto_close', True)  # 默认值为True
+        self.auto_close_var.set(auto_close_value)
+
     def refresh_egg_data(self, key):
         """刷新彩蛋配置数据"""
         tree = self.personal_egg_tree if key == "egg_cases" else self.group_egg_tree
