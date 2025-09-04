@@ -1108,149 +1108,264 @@ class ConfigEditor:
             title="选择Excel文件",
             filetypes=[("Excel文件", "*.xlsx *.xls"), ("所有文件", "*.*")]
         )
-        
+
         if not file_path:
             return
-        
+
         try:
+            # 使用pandas读取所有sheet
+            excel_data = pd.read_excel(file_path, sheet_name=None)
+
+            # 识别各个sheet的内容
+            name_group_df = None
+            personal_egg_df = None
+            group_egg_df = None
+
+            for sheet_name, df in excel_data.items():
+                sheet_lower = sheet_name.lower()
+                if '姓名' in sheet_name and '分组' in sheet_name:
+                    name_group_df = df
+                elif '个人' in sheet_name and '彩蛋' in sheet_name:
+                    personal_egg_df = df
+                elif '分组' in sheet_name and '彩蛋' in sheet_name:
+                    group_egg_df = df
+                elif name_group_df is None and ('name' in sheet_lower or '姓名' in sheet_name):
+                    # 如果没有找到明确的"姓名和分组"sheet，使用第一个包含姓名的sheet
+                    name_group_df = df
+
             # 创建导入对话框
             import_dialog = Toplevel(self.root)
             import_dialog.title("从Excel导入")
-            import_dialog.geometry("500x400")
+            import_dialog.geometry("700x600")
+            import_dialog.minsize(700, 600)  # 设置最小尺寸
             import_dialog.transient(self.root)
             import_dialog.grab_set()
-            
+
             # 主框架
             main_frame = ttk.Frame(import_dialog, padding="10")
             main_frame.pack(fill=BOTH, expand=True)
-            
-            # 预览数据
-            preview_frame = ttk.LabelFrame(main_frame, text="数据预览")
-            preview_frame.pack(fill=BOTH, expand=True, padx=5, pady=5)
-            
-            # 创建Treeview用于显示Excel内容
-            tree_frame = Frame(preview_frame)
-            tree_frame.pack(fill=BOTH, expand=True)
-            
-            # 滚动条
-            scrollbar_y = ttk.Scrollbar(tree_frame)
-            scrollbar_y.pack(side=RIGHT, fill=Y)
-            
-            scrollbar_x = ttk.Scrollbar(tree_frame, orient=HORIZONTAL)
-            scrollbar_x.pack(side=BOTTOM, fill=X)
-            
-            # 使用pandas读取Excel
-            df = pd.read_excel(file_path)
-            columns = list(df.columns)
-            
-            # 创建Treeview
-            excel_tree = ttk.Treeview(
-                tree_frame,
-                columns=columns,
-                show='headings',
-                yscrollcommand=scrollbar_y.set,
-                xscrollcommand=scrollbar_x.set
-            )
-            
-            # 设置列
-            for col in columns:
-                excel_tree.column(col, width=100, anchor='center')
-                excel_tree.heading(col, text=col)
-            
-            # 添加数据行
-            for i, row in df.iterrows():
-                values = [str(row[col]) for col in columns]
-                excel_tree.insert('', END, values=values)
-            
-            excel_tree.pack(fill=BOTH, expand=True)
-            scrollbar_y.config(command=excel_tree.yview)
-            scrollbar_x.config(command=excel_tree.xview)
-            
-            # 导入选项框架
-            options_frame = ttk.LabelFrame(main_frame, text="导入选项")
-            options_frame.pack(fill=X, padx=5, pady=5)
-            
-            # 选择列
-            column_frame = ttk.Frame(options_frame)
-            column_frame.pack(fill=X, padx=5, pady=5)
-            
-            ttk.Label(column_frame, text="姓名列:").grid(row=0, column=0, padx=5, pady=2, sticky=W)
-            name_column_var = StringVar()
-            name_column_combo = ttk.Combobox(column_frame, textvariable=name_column_var, values=columns, width=15)
-            name_column_combo.grid(row=0, column=1, padx=5, pady=2, sticky=W)
-            if columns:
-                name_column_combo.current(0)
-                
-            ttk.Label(column_frame, text="分组列:").grid(row=1, column=0, padx=5, pady=2, sticky=W)
-            group_column_var = StringVar()
-            group_column_combo = ttk.Combobox(column_frame, textvariable=group_column_var, values=[""] + columns, width=15)
-            group_column_combo.grid(row=1, column=1, padx=5, pady=2, sticky=W)
-            group_column_combo.current(0)  # 默认不选择分组列
-            
+
+            # 显示识别到的sheets
+            info_frame = ttk.LabelFrame(main_frame, text="识别到的数据表")
+            info_frame.pack(fill=X, padx=5, pady=5)
+
+            info_text = ""
+            if name_group_df is not None:
+                info_text += f"· 姓名和分组表: {name_group_df.shape[0]} 行数据\n"
+            if personal_egg_df is not None:
+                info_text += f"· 个人彩蛋表: {personal_egg_df.shape[0]} 行数据\n"
+            if group_egg_df is not None:
+                info_text += f"· 分组彩蛋表: {group_egg_df.shape[0]} 行数据\n"
+
+            if not info_text:
+                info_text = "未识别到有效的数据表"
+
+            ttk.Label(info_frame, text=info_text, justify=LEFT).pack(pady=5, padx=5)
+
             # 导入设置
-            settings_frame = ttk.Frame(options_frame)
+            settings_frame = ttk.LabelFrame(main_frame, text="导入选项")
             settings_frame.pack(fill=X, padx=5, pady=5)
-            
+
             merge_var = BooleanVar(value=True)
             merge_check = ttk.Checkbutton(settings_frame, text="合并到现有列表", variable=merge_var)
-            merge_check.grid(row=0, column=0, padx=5, pady=2, sticky=W)
-            
-            # 操作按钮
+            merge_check.pack(pady=5, padx=5, anchor=W)
+
+            # 预览区域 - 使用固定高度和滚动条
+            preview_frame = ttk.LabelFrame(main_frame, text="数据预览")
+            preview_frame.pack(fill=BOTH, expand=True, padx=5, pady=5)
+
+            # 创建预览内容区域
+            preview_container = ttk.Frame(preview_frame)
+            preview_container.pack(fill=BOTH, expand=True, padx=5, pady=5)
+
+            # 滚动条
+            preview_scrollbar = ttk.Scrollbar(preview_container)
+            preview_scrollbar.pack(side=RIGHT, fill=Y)
+
+            # 文本区域
+            preview_text = Text(preview_container, wrap=WORD, yscrollcommand=preview_scrollbar.set,
+                               height=10, state=NORMAL)  # 设置最小高度
+            preview_text.pack(fill=BOTH, expand=True)
+            preview_scrollbar.config(command=preview_text.yview)
+
+            # 显示姓名和分组数据的预览
+            if name_group_df is not None:
+                preview_content = "姓名和分组数据预览:\n"
+                preview_count = 0
+                for i, row in name_group_df.iterrows():
+                    if preview_count >= 20:  # 限制预览行数，避免内容过多
+                        preview_content += f"... 还有 {len(name_group_df) - preview_count} 行数据\n"
+                        break
+                    name = str(row.get('姓名', row.get('姓名', ''))).strip()
+                    group = str(row.get('分组', row.get('分组', ''))).strip()
+                    if name or group:
+                        preview_content += f"  {name or '(空)'} -> {group or '(无分组)'}\n"
+                        preview_count += 1
+
+                preview_text.insert("1.0", preview_content)
+                preview_text.config(state=DISABLED)  # 设置为只读
+
+            # 按钮区域 - 固定在底部
             button_frame = ttk.Frame(main_frame)
-            button_frame.pack(pady=10)
-            
+            button_frame.pack(fill=X, pady=(10, 5), side=BOTTOM)  # 固定在底部
+
             def do_import():
-                name_column = name_column_var.get()
-                group_column = group_column_var.get()
-                
-                if not name_column:
-                    messagebox.showwarning("警告", "请选择姓名列")
-                    return
-                
-                # 提取姓名和分组数据
-                names_to_import = df[name_column].dropna().unique().tolist()
-                names_to_import = [str(name).strip() for name in names_to_import if str(name).strip()]
-                
-                groups_to_import = []
-                if group_column:
-                    groups_to_import = df[group_column].dropna().unique().tolist()
-                    groups_to_import = [str(group).strip() for group in groups_to_import if str(group).strip()]
-                
-                # 合并或替换数据
-                if merge_var.get():
-                    # 合并模式 - 添加不存在的项
-                    current_names = self.config_data.get('names', [])
-                    current_groups = self.config_data.get('groups', [])
-                    
-                    # 过滤已存在的名称
-                    names_to_import = [name for name in names_to_import if name not in current_names]
-                    groups_to_import = [group for group in groups_to_import if group not in current_groups]
-                    
-                    # 添加到现有列表
-                    self.config_data['names'] = current_names + names_to_import
-                    self.config_data['groups'] = current_groups + groups_to_import
-                else:
-                    # 替换模式
-                    self.config_data['names'] = names_to_import
-                    if groups_to_import:
-                        self.config_data['groups'] = groups_to_import
-                
+                imported_names = 0
+                imported_groups = 0
+                imported_personal_eggs = 0
+                imported_group_eggs = 0
+
+                # 导入姓名和分组数据
+                if name_group_df is not None:
+                    # 处理姓名数据
+                    if '姓名' in name_group_df.columns:
+                        names_series = name_group_df['姓名'].dropna()
+                        names_to_import = [str(name).strip() for name in names_series.unique() if str(name).strip()]
+                    else:
+                        names_to_import = []
+
+                    # 处理分组数据
+                    groups_to_import = []
+                    if '分组' in name_group_df.columns:
+                        groups_series = name_group_df['分组'].dropna()
+                        groups_to_import = [str(group).strip() for group in groups_series.unique() if str(group).strip()]
+
+                    # 合并或替换数据
+                    if merge_var.get():
+                        # 合并模式 - 添加不存在的项
+                        current_names = self.config_data.get('names', [])
+                        current_groups = self.config_data.get('groups', [])
+
+                        # 过滤已存在的名称和分组
+                        names_to_import = [name for name in names_to_import if name not in current_names]
+                        groups_to_import = [group for group in groups_to_import if group not in current_groups]
+
+                        # 添加到现有列表
+                        if names_to_import:
+                            self.config_data['names'] = current_names + names_to_import
+                        if groups_to_import:
+                            self.config_data['groups'] = current_groups + groups_to_import
+                    else:
+                        # 替换模式
+                        if names_to_import:
+                            self.config_data['names'] = names_to_import
+                        if groups_to_import:
+                            self.config_data['groups'] = groups_to_import
+
+                    imported_names = len(names_to_import)
+                    imported_groups = len(groups_to_import)
+
+                # 导入个人彩蛋数据
+                if personal_egg_df is not None and not personal_egg_df.empty:
+                    personal_eggs = []
+                    for i, row in personal_egg_df.iterrows():
+                        name = str(row.get('姓名', '')).strip()
+                        if name:
+                            egg_config = {'name': name}
+
+                            # 处理其他字段
+                            if '显示名' in row and pd.notna(row['显示名']):
+                                egg_config['new_name'] = str(row['显示名']).strip()
+                            if '颜色' in row and pd.notna(row['颜色']):
+                                color_name = str(row['颜色']).strip()
+                                if color_name in COLOR_MAP:
+                                    egg_config['color'] = COLOR_MAP[color_name]
+                            if '图片路径' in row and pd.notna(row['图片路径']):
+                                egg_config['image'] = str(row['图片路径']).strip()
+                            if '语音路径' in row and pd.notna(row['语音路径']):
+                                egg_config['voice'] = str(row['语音路径']).strip()
+                            if '朗读文本' in row and pd.notna(row['朗读文本']):
+                                egg_config['s_read_str'] = str(row['朗读文本']).strip()
+
+                            personal_eggs.append(egg_config)
+
+                    # 合并个人彩蛋数据
+                    if merge_var.get():
+                        current_eggs = self.config_data.get('egg_cases', [])
+                        # 只添加不存在的个人彩蛋配置
+                        for new_egg in personal_eggs:
+                            exists = False
+                            for existing_egg in current_eggs:
+                                if existing_egg.get('name') == new_egg['name']:
+                                    existing_egg.update(new_egg)
+                                    exists = True
+                                    break
+                            if not exists:
+                                current_eggs.append(new_egg)
+                        self.config_data['egg_cases'] = current_eggs
+                    else:
+                        self.config_data['egg_cases'] = personal_eggs
+
+                    imported_personal_eggs = len(personal_eggs)
+
+                # 导入分组彩蛋数据
+                if group_egg_df is not None and not group_egg_df.empty:
+                    group_eggs = []
+                    for i, row in group_egg_df.iterrows():
+                        name = str(row.get('分组名', '')).strip()
+                        if name:
+                            egg_config = {'name': name}
+
+                            # 处理其他字段
+                            if '显示名' in row and pd.notna(row['显示名']):
+                                egg_config['new_name'] = str(row['显示名']).strip()
+                            if '颜色' in row and pd.notna(row['颜色']):
+                                color_name = str(row['颜色']).strip()
+                                if color_name in COLOR_MAP:
+                                    egg_config['color'] = COLOR_MAP[color_name]
+                            if '图片路径' in row and pd.notna(row['图片路径']):
+                                egg_config['image'] = str(row['图片路径']).strip()
+                            if '语音路径' in row and pd.notna(row['语音路径']):
+                                egg_config['voice'] = str(row['语音路径']).strip()
+                            if '朗读文本' in row and pd.notna(row['朗读文本']):
+                                egg_config['s_read_str'] = str(row['朗读文本']).strip()
+
+                            group_eggs.append(egg_config)
+
+                    # 合并分组彩蛋数据
+                    if merge_var.get():
+                        current_eggs = self.config_data.get('egg_cases_group', [])
+                        # 只添加不存在的分组彩蛋配置
+                        for new_egg in group_eggs:
+                            exists = False
+                            for existing_egg in current_eggs:
+                                if existing_egg.get('name') == new_egg['name']:
+                                    existing_egg.update(new_egg)
+                                    exists = True
+                                    break
+                            if not exists:
+                                current_eggs.append(new_egg)
+                        self.config_data['egg_cases_group'] = current_eggs
+                    else:
+                        self.config_data['egg_cases_group'] = group_eggs
+
+                    imported_group_eggs = len(group_eggs)
+
                 # 刷新显示
-                self.refresh_names_data()
-                self.refresh_groups_data()
+                self.refresh_all_data()
                 self.is_modified = True
                 self.update_status_bar()
-                
-                messagebox.showinfo("导入成功", f"已导入 {len(names_to_import)} 个姓名" + 
-                                    (f" 和 {len(groups_to_import)} 个分组" if groups_to_import else ""))
+
+                # 显示导入结果
+                result_msg = f"导入完成!\n"
+                if imported_names > 0:
+                    result_msg += f"· 姓名: {imported_names} 个\n"
+                if imported_groups > 0:
+                    result_msg += f"· 分组: {imported_groups} 个\n"
+                if imported_personal_eggs > 0:
+                    result_msg += f"· 个人彩蛋: {imported_personal_eggs} 个\n"
+                if imported_group_eggs > 0:
+                    result_msg += f"· 分组彩蛋: {imported_group_eggs} 个\n"
+
+                messagebox.showinfo("导入成功", result_msg)
                 import_dialog.destroy()
-            
+
             import_btn = ttk.Button(button_frame, text="导入", command=do_import)
             import_btn.pack(side=LEFT, padx=5)
-            
+
             cancel_btn = ttk.Button(button_frame, text="取消", command=import_dialog.destroy)
             cancel_btn.pack(side=LEFT, padx=5)
-            
+
         except Exception as e:
             messagebox.showerror("错误", f"导入Excel失败: {str(e)}\n{traceback.format_exc()}")
     
@@ -1261,30 +1376,39 @@ class ConfigEditor:
             defaultextension=".xlsx",
             filetypes=[("Excel文件", "*.xlsx"), ("所有文件", "*.*")]
         )
-    
+
         if not file_path:
             return
-    
+
         try:
             # 检查是否有数据可以导出
             if not self.config_data.get('names') and not self.config_data.get('groups'):
                 messagebox.showwarning("警告", "没有数据可以导出，请先添加姓名或分组")
                 return
-        
+
             # 创建Excel写入器
             with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                # 写入姓名表 - 单独处理姓名和分组
+                # 创建姓名和分组数据 - 与模板格式一致
                 names_list = self.config_data.get('names', [])
-                if names_list:
-                    df_names = pd.DataFrame({"姓名": names_list})
-                    df_names.to_excel(writer, sheet_name='姓名列表', index=False)
-            
-                # 单独写入分组表
                 groups_list = self.config_data.get('groups', [])
-                if groups_list:
-                    df_groups = pd.DataFrame({"分组": groups_list})
-                    df_groups.to_excel(writer, sheet_name='分组列表', index=False)
-            
+
+                # 创建统一的"姓名和分组"sheet
+                if names_list:
+                    # 创建姓名数据，分组列可以为空（可选填写）
+                    name_group_data = []
+                    for name in names_list:
+                        name_group_data.append({"姓名": name, "分组": ""})
+                    df_names_groups = pd.DataFrame(name_group_data)
+                    df_names_groups.to_excel(writer, sheet_name='姓名和分组', index=False)
+
+                # 如果有分组但没有姓名，创建一个只有分组的sheet
+                elif groups_list:
+                    name_group_data = []
+                    for group in groups_list:
+                        name_group_data.append({"姓名": "", "分组": group})
+                    df_names_groups = pd.DataFrame(name_group_data)
+                    df_names_groups.to_excel(writer, sheet_name='姓名和分组', index=False)
+
                 # 写入个人彩蛋表
                 egg_data = []
                 for egg in self.config_data.get('egg_cases', []):
@@ -1296,11 +1420,11 @@ class ConfigEditor:
                         '语音路径': egg.get('voice', ''),
                         '朗读文本': egg.get('s_read_str', '')
                     })
-                
+
                 if egg_data:
                     df_egg = pd.DataFrame(egg_data)
                     df_egg.to_excel(writer, sheet_name='个人彩蛋', index=False)
-            
+
                 # 写入分组彩蛋表
                 group_egg_data = []
                 for egg in self.config_data.get('egg_cases_group', []):
@@ -1312,17 +1436,17 @@ class ConfigEditor:
                         '语音路径': egg.get('voice', ''),
                         '朗读文本': egg.get('s_read_str', '')
                     })
-                
+
                 if group_egg_data:
                     df_group_egg = pd.DataFrame(group_egg_data)
                     df_group_egg.to_excel(writer, sheet_name='分组彩蛋', index=False)
-            
+
                 # 如果到此处都没有写入任何工作表，添加一个空的默认工作表
                 if not (names_list or groups_list or egg_data or group_egg_data):
                     pd.DataFrame().to_excel(writer, sheet_name='空数据', index=False)
-        
+
             messagebox.showinfo("导出成功", f"配置已导出到 {file_path}")
-        
+
         except Exception as e:
             # 显示详细的错误信息以便调试
             error_msg = str(e)
@@ -1416,20 +1540,25 @@ class ConfigEditor:
         """显示帮助信息"""
         help_dialog = Toplevel(self.root)
         help_dialog.title("随机抽签器 - 配置编辑器使用说明")
-        help_dialog.geometry("700x500")
+        help_dialog.geometry("700x600")
+        help_dialog.minsize(700, 500)  # 设置最小尺寸
         help_dialog.transient(self.root)
-        
+
+        # 主框架
+        main_frame = ttk.Frame(help_dialog, padding="10")
+        main_frame.pack(fill=BOTH, expand=True)
+
         # 创建滚动文本区域
-        text_frame = Frame(help_dialog)
-        text_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
-        
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(fill=BOTH, expand=True, padx=5, pady=5)
+
         scrollbar = ttk.Scrollbar(text_frame)
         scrollbar.pack(side=RIGHT, fill=Y)
-        
-        text = Text(text_frame, wrap=WORD, yscrollcommand=scrollbar.set)
+
+        text = Text(text_frame, wrap=WORD, yscrollcommand=scrollbar.set, height=20)
         text.pack(fill=BOTH, expand=True)
         scrollbar.config(command=text.yview)
-        
+
         # 帮助内容
         help_content = """随机抽签器 配置文件编辑器 使用说明
 
@@ -1496,14 +1625,14 @@ class ConfigEditor:
 • 彩蛋可以只设置部分属性，不必全部填写
 • 图片和音频文件路径请确保准确无误
 """
-        
+
         text.insert("1.0", help_content)
         text.config(state=DISABLED)  # 设置为只读
-        
-        # 添加确定按钮
-        button_frame = Frame(help_dialog)
-        button_frame.pack(pady=10)
-        
+
+        # 按钮区域 - 固定在底部
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=X, pady=(10, 5), side=BOTTOM)
+
         ok_button = ttk.Button(button_frame, text="确定", command=help_dialog.destroy)
         ok_button.pack()
     
