@@ -167,7 +167,8 @@ def show_error_popup(message, close_window=True, auto_close=False):
     error_window.title("随机抽签器-提示")
     error_window.transient(root)
     error_window.attributes('-toolwindow', True)
-    
+    error_window.minsize(300, 150)  # 设置最小尺寸
+
     # 添加Windows系统特定的窗口样式设置
     if platform.system() == 'Windows':
         import ctypes
@@ -177,20 +178,43 @@ def show_error_popup(message, close_window=True, auto_close=False):
         GWL_EXSTYLE = -20
         WS_EX_TOOLWINDOW = 0x00000080
         ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW)
-    
-    error_label = Label(error_window, text=message)
-    error_label.pack()
-    
+
+    # 主框架
+    main_frame = Frame(error_window, padx=15, pady=10)
+    main_frame.pack(fill=BOTH, expand=True)
+
+    # 错误信息标签，支持自动换行
+    error_label = Label(main_frame,
+                       text=message,
+                       justify=LEFT,
+                       wraplength=350,  # 设置最大宽度，超过会自动换行
+                       anchor=W)
+    error_label.pack(fill=X, pady=(0, 10))
+
+    # 按钮框架
+    button_frame = Frame(main_frame)
+    button_frame.pack(side=BOTTOM, pady=(5, 0))
+
     # 添加自动关闭功能
     if auto_close:
         def auto_close_window():
             if error_window.winfo_exists():
                 error_window.destroy()
         error_window.after(4000, auto_close_window)
-    
-    ok_button = Button(error_window, text="确定", 
-                      command=lambda: close(error_window, close_window=close_window))
+
+    ok_button = Button(button_frame, text="确定",
+                      command=lambda: close(error_window, close_window=close_window),
+                      width=8)
     ok_button.pack()
+
+    # 居中显示窗口
+    error_window.update_idletasks()
+    width = error_window.winfo_width()
+    height = error_window.winfo_height()
+    x = (error_window.winfo_screenwidth() // 2) - (width // 2)
+    y = (error_window.winfo_screenheight() // 2) - (height // 2)
+    error_window.geometry(f'+{x}+{y}')
+
     error_window.mainloop()
     
 def read(name, voice):
@@ -409,7 +433,8 @@ def set_leave_list():
     leave_window.title("随机抽签器 - 请假管理")
     leave_window.transient(root)
     leave_window.attributes('-toolwindow', True)
-    
+    leave_window.minsize(400, 350)  # 设置最小尺寸
+
     # 添加Windows系统特定的窗口样式设置
     if platform.system() == 'Windows':
         import ctypes
@@ -417,7 +442,7 @@ def set_leave_list():
         GWL_EXSTYLE = -20
         WS_EX_TOOLWINDOW = 0x00000080
         ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW)
-    
+
     # 主容器
     main_frame = Frame(leave_window, padx=10, pady=10)
     main_frame.pack(expand=True, fill=BOTH)
@@ -501,17 +526,18 @@ def show_about():
     about_window.title("随机抽签器 - 关于")
     about_window.transient(root)
     about_window.attributes('-toolwindow', True)
-    
+    about_window.minsize(450, 400)  # 设置最小尺寸
+
     if platform.system() == 'Windows':
         import ctypes
         hwnd = ctypes.windll.user32.GetParent(about_window.winfo_id())
         GWL_EXSTYLE = -20
         WS_EX_TOOLWINDOW = 0x00000080
         ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW)
-    
+
     # 主框架容器
     main_frame = Frame(about_window)
-    main_frame.pack(padx=20, pady=10)
+    main_frame.pack(padx=20, pady=10, fill=BOTH, expand=True)
 
     # 软件信息部分
     about_text = Label(main_frame, 

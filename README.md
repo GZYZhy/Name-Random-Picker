@@ -2,7 +2,7 @@
 
 一个基于Python的智能随机抽签工具，支持姓名/分组抽取、特效展示和请假管理
 
-使用说明见[USEAGE.md](https://github.com/GZYZhy/Name-Random-Picker/blob/main/USEAGE.md)
+使用说明见[USAGE.md](https://github.com/GZYZhy/Name-Random-Picker/blob/main/USAGE.md)
 
 ## ✨ 主要功能
 
@@ -28,15 +28,6 @@
 - 自动窗口大小适配
 
 ## 🚀 快速开始
-- 对于Linux/MacOS
-
-```bash
-git clone https://github.com/gzyzhy/Name-Random-Picker.git
-cd Name-Random-Picker
-pip install -r requirements.txt
-python main.py
-```
-- 对于Windows
 
 1. 前往[Release](https://github.com/GZYZhy/Name-Random-Picker/releases)页面下载安装包（.exe）
 
