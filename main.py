@@ -8,6 +8,7 @@ import json
 import os
 import random
 import threading
+import time
 from tkinter import *
 from PIL import Image, ImageTk
 import sys
@@ -111,14 +112,14 @@ screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
 window_width = 50
 window_height = 100
-x = 0
+x = screen_width - window_width  # 改为右下角
 y = screen_height - window_height - 40  # 保留底部边距
 root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 root.iconbitmap(resource_path('favicon.ico'))
 root.title("随机抽签器")
 # 初始隐藏标题栏
 root.overrideredirect(1)  # 替换原来的toolwindow设置
-root.attributes('-alpha', 0.9)
+root.attributes('-alpha', 0.4)  # 启动时使用待机透明度
 root.attributes('-topmost', True)
 # 设置窗口背景色
 root.config(bg='white')
@@ -150,6 +151,12 @@ drag_start_x = 0
 drag_start_y = 0
 drag_threshold = 5  # 拖动超过5像素视为移动操作
 is_dragging = False
+
+# 在全局变量区域添加动态透明度相关变量
+normal_alpha = 0.9  # 正常透明度
+idle_alpha = 0.4    # 待机透明度
+last_click_time = 0  # 最后一次点击时间
+transparency_timer = None  # 透明度定时器
 
 # 设置Windows任务栏属性
 if platform.system() == 'Windows':
@@ -335,6 +342,78 @@ def auto_close_windows():
         have_w = False
 
     print("自动关闭展示窗口")
+
+
+def set_window_transparency(alpha):
+    """
+    设置窗口透明度的函数
+    :param alpha: 透明度值 (0.0-1.0)
+    """
+    try:
+        root.attributes('-alpha', alpha)
+        print(f"[DEBUG] 窗口透明度已设置为: {alpha}")
+    except Exception as e:
+        print(f"[DEBUG] 设置透明度失败: {e}")
+
+
+def switch_to_idle_transparency():
+    """
+    切换到待机透明度的函数
+    """
+    global idle_alpha
+    set_window_transparency(idle_alpha)
+    print(f"切换到待机透明度: {idle_alpha}")
+
+
+def switch_to_normal_transparency():
+    """
+    切换到正常透明度的函数
+    """
+    global normal_alpha
+    set_window_transparency(normal_alpha)
+    print(f"切换到正常透明度: {normal_alpha}")
+
+
+def check_transparency_timeout():
+    """
+    检查是否需要切换到待机透明度的定时函数
+    """
+    global last_click_time, transparency_timer
+
+    current_time = time.time()
+    time_diff = current_time - last_click_time
+    print(f"[DEBUG] 检查透明度超时 - 当前时间差: {time_diff:.1f}秒")
+
+    if time_diff >= 10:  # 10秒超时
+        print("[DEBUG] 达到10秒超时，切换到待机透明度")
+        switch_to_idle_transparency()
+    else:
+        # 还没到10秒，继续检查
+        print(f"[DEBUG] 未达到超时，继续等待 - 剩余{10 - time_diff:.1f}秒")
+        transparency_timer = root.after(1000, check_transparency_timeout)
+
+
+def update_last_click_time():
+    """
+    更新最后点击时间的函数
+    """
+    global last_click_time, transparency_timer
+
+    last_click_time = time.time()
+    print(f"[DEBUG] 更新最后点击时间: {time.ctime(last_click_time)}")
+    print(f"[DEBUG] 当前时间戳: {last_click_time}")
+
+    # 切换到正常透明度
+    switch_to_normal_transparency()
+
+    # 取消之前的定时器
+    if transparency_timer is not None:
+        print("[DEBUG] 取消之前的透明度定时器")
+        root.after_cancel(transparency_timer)
+
+    # 重新启动定时器
+    print("[DEBUG] 重新启动透明度检查定时器")
+    transparency_timer = root.after(1000, check_transparency_timeout)
 
 
 def show_window(name, image_name, color, voice, s_read, s_read_str, parent_window=None):
@@ -744,6 +823,10 @@ def openwindow():
     打开抽取名字窗口的函数
     """
     global is_dragging, auto_close_timer
+
+    # 更新点击时间和透明度
+    update_last_click_time()
+
     if is_dragging:
         is_dragging = False
         return
@@ -787,7 +870,10 @@ def openwindow_group():
     打开抽取分组窗口的函数
     """
     global is_dragging, auto_close_timer
-    global is_dragging
+
+    # 更新点击时间和透明度
+    update_last_click_time()
+
     if is_dragging:
         is_dragging = False
         return
@@ -964,6 +1050,8 @@ def showPopoutMenu(w, menu):
     :param menu: 要展示的菜单
     """
     def popout(event):
+        # 更新点击时间和透明度（右键菜单也是用户交互）
+        update_last_click_time()
         menu.post(event.x + w.winfo_rootx(), event.y + w.winfo_rooty())
         w.update()
 
@@ -1054,10 +1142,19 @@ def read_config(path):
                     print("配置文件中未找到auto_close字段，使用默认值True")
                 # 修改启动提示调用方式
                 show_error_popup(
-                    f"程序已开始运行，请使用屏幕左下角的方块按钮来抽取！\n当前使用的配置文件：{os.path.abspath(path)}",
+                    f"程序已开始运行，请使用屏幕右下角的方块按钮来抽取！\n当前使用的配置文件：{os.path.abspath(path)}",
                     close_window=False,
                     auto_close=True  # 添加自动关闭参数
                 )
+
+                # 初始化透明度系统
+                global last_click_time
+                last_click_time = time.time()  # 设置初始点击时间
+                print(f"[DEBUG] 透明度系统初始化 - 当前时间: {time.ctime(last_click_time)}")
+                print(f"[DEBUG] 正常透明度: {normal_alpha}, 待机透明度: {idle_alpha}")
+                print(f"[DEBUG] 程序启动时使用待机透明度: {idle_alpha}")
+                root.after(1000, check_transparency_timeout)  # 启动透明度检查定时器
+                print("[DEBUG] 透明度检查定时器已启动")
     except Exception as e:
         handle_config_error(e, path)
 
