@@ -158,6 +158,10 @@ idle_alpha = 0.4    # 待机透明度
 last_click_time = 0  # 最后一次点击时间
 transparency_timer = None  # 透明度定时器
 
+# 在全局变量区域添加双击检测相关变量
+last_button_click_time = 0  # 按钮最后一次点击时间
+double_click_threshold = 500  # 双击检测阈值（毫秒）
+
 # 设置Windows任务栏属性
 if platform.system() == 'Windows':
     import ctypes
@@ -414,6 +418,30 @@ def update_last_click_time():
     # 重新启动定时器
     print("[DEBUG] 重新启动透明度检查定时器")
     transparency_timer = root.after(1000, check_transparency_timeout)
+
+
+def handle_button_click(event, action_func):
+    """
+    处理按钮点击事件，检测双击并执行相应操作
+    :param event: 事件对象
+    :param action_func: 要执行的操作函数
+    """
+    global last_button_click_time, double_click_threshold
+
+    current_time = time.time() * 1000  # 转换为毫秒
+    time_diff = current_time - last_button_click_time
+
+    print(f"[DEBUG] 按钮点击 - 时间差: {time_diff:.0f}ms")
+
+    if time_diff < double_click_threshold:
+        # 双击检测 - 视为单次操作
+        print("[DEBUG] 检测到双击，执行单次操作")
+        last_button_click_time = 0  # 重置时间戳，防止连续双击
+    else:
+        # 普通点击
+        print("[DEBUG] 普通点击，执行操作")
+        last_button_click_time = current_time
+        action_func()  # 执行操作
 
 
 def show_window(name, image_name, color, voice, s_read, s_read_str, parent_window=None):
@@ -1021,23 +1049,25 @@ def move():
         root.unbind("<ButtonRelease-1>")
 
 # 修改按钮背景色和样式
-button_name = Button(root, 
-                    width=50, 
-                    height=3, 
-                    command=openwindow,
+button_name = Button(root,
+                    width=50,
+                    height=3,
                     bg='lightblue',  # 改为浅蓝色使按钮可见
                     activebackground='skyblue',
                     relief='raised')  # 添加凸起效果
 button_name.pack()
 
-button_group = Button(root, 
-                     width=50, 
-                     height=2, 
-                     command=openwindow_group, 
+button_group = Button(root,
+                     width=50,
+                     height=2,
                      bg='lightcoral',  # 改为浅珊瑚色
                      activebackground='coral',
                      relief='raised')  # 添加凸起效果
 button_group.pack()
+
+# 为按钮添加点击事件绑定（支持双击检测）
+button_name.bind('<Button-1>', lambda event: handle_button_click(event, openwindow))
+button_group.bind('<Button-1>', lambda event: handle_button_click(event, openwindow_group))
 
 # 添加任务栏图标支持
 import ctypes
