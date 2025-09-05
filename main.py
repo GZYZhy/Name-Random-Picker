@@ -971,7 +971,7 @@ def openwindow():
     """
     打开抽取名字窗口的函数
     """
-    global is_dragging, auto_close_timer
+    global is_dragging, auto_close_timer, last_personal_selected
 
     # 更新点击时间和透明度
     update_last_click_time()
@@ -1043,7 +1043,7 @@ def openwindow_group():
     """
     打开抽取分组窗口的函数
     """
-    global is_dragging, auto_close_timer
+    global is_dragging, auto_close_timer, last_group_selected
 
     # 更新点击时间和透明度
     update_last_click_time()
