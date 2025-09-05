@@ -4,10 +4,13 @@ coding: utf-8
 GitHub: https://github.com/gzyzhy/Name-Random-Picker
 """
 
+print("=== 程序开始加载模块 ===")
 import json
 import os
 import random
+print(f"[DEBUG] random模块已加载，当前种子状态: {random.getstate() is not None}")
 import threading
+import time
 from tkinter import *
 from PIL import Image, ImageTk
 import sys
@@ -111,14 +114,14 @@ screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
 window_width = 50
 window_height = 100
-x = 0
+x = screen_width - window_width  # 改为右下角
 y = screen_height - window_height - 40  # 保留底部边距
 root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 root.iconbitmap(resource_path('favicon.ico'))
 root.title("随机抽签器")
 # 初始隐藏标题栏
 root.overrideredirect(1)  # 替换原来的toolwindow设置
-root.attributes('-alpha', 0.9)
+root.attributes('-alpha', 0.4)  # 启动时使用待机透明度
 root.attributes('-topmost', True)
 # 设置窗口背景色
 root.config(bg='white')
@@ -150,6 +153,22 @@ drag_start_x = 0
 drag_start_y = 0
 drag_threshold = 5  # 拖动超过5像素视为移动操作
 is_dragging = False
+
+# 在全局变量区域添加动态透明度相关变量
+normal_alpha = 0.9  # 正常透明度
+idle_alpha = 0.4    # 待机透明度
+last_click_time = 0  # 最后一次点击时间
+transparency_timer = None  # 透明度定时器
+
+# 在全局变量区域添加双击检测相关变量
+last_button_click_time = 0  # 按钮最后一次点击时间
+double_click_threshold = 500  # 双击检测阈值（毫秒）
+
+# 在全局变量区域添加随机种子重新设置相关变量
+# 种子重新设置间隔配置（单位：分钟，默认5分钟）
+SEED_REFRESH_MINUTES = 5  # 默认值
+seed_refresh_interval = SEED_REFRESH_MINUTES * 60000  # 转换为毫秒
+seed_refresh_timer = None  # 种子重新设置定时器
 
 # 设置Windows任务栏属性
 if platform.system() == 'Windows':
@@ -217,7 +236,8 @@ def show_error_popup(message, close_window=True, auto_close=False):
     y = (error_window.winfo_screenheight() // 2) - (height // 2)
     error_window.geometry(f'+{x}+{y}')
 
-    error_window.mainloop()
+    # 不调用mainloop()，让Tkinter主事件循环处理
+    # error_window.mainloop()  # 移除这行以避免阻塞
     
 def read(name, voice):
     """
@@ -335,6 +355,125 @@ def auto_close_windows():
         have_w = False
 
     print("自动关闭展示窗口")
+
+
+def set_window_transparency(alpha):
+    """
+    设置窗口透明度的函数
+    :param alpha: 透明度值 (0.0-1.0)
+    """
+    try:
+        root.attributes('-alpha', alpha)
+        print(f"[DEBUG] 窗口透明度已设置为: {alpha}")
+    except Exception as e:
+        print(f"[DEBUG] 设置透明度失败: {e}")
+
+
+def switch_to_idle_transparency():
+    """
+    切换到待机透明度的函数
+    """
+    global idle_alpha
+    set_window_transparency(idle_alpha)
+    print(f"切换到待机透明度: {idle_alpha}")
+
+
+def switch_to_normal_transparency():
+    """
+    切换到正常透明度的函数
+    """
+    global normal_alpha
+    set_window_transparency(normal_alpha)
+    print(f"切换到正常透明度: {normal_alpha}")
+
+
+def check_transparency_timeout():
+    """
+    检查是否需要切换到待机透明度的定时函数
+    """
+    global last_click_time, transparency_timer
+
+    current_time = time.time()
+    time_diff = current_time - last_click_time
+    print(f"[DEBUG] 检查透明度超时 - 当前时间差: {time_diff:.1f}秒")
+
+    if time_diff >= 10:  # 10秒超时
+        print("[DEBUG] 达到10秒超时，切换到待机透明度")
+        switch_to_idle_transparency()
+    else:
+        # 还没到10秒，继续检查
+        print(f"[DEBUG] 未达到超时，继续等待 - 剩余{10 - time_diff:.1f}秒")
+        transparency_timer = root.after(1000, check_transparency_timeout)
+
+
+def update_last_click_time():
+    """
+    更新最后点击时间的函数
+    """
+    global last_click_time, transparency_timer
+
+    last_click_time = time.time()
+    print(f"[DEBUG] 更新最后点击时间: {time.ctime(last_click_time)}")
+    print(f"[DEBUG] 当前时间戳: {last_click_time}")
+
+    # 切换到正常透明度
+    switch_to_normal_transparency()
+
+    # 取消之前的定时器
+    if transparency_timer is not None:
+        print("[DEBUG] 取消之前的透明度定时器")
+        root.after_cancel(transparency_timer)
+
+    # 重新启动定时器
+    print("[DEBUG] 重新启动透明度检查定时器")
+    transparency_timer = root.after(1000, check_transparency_timeout)
+
+
+def reseed_random():
+    """
+    重新设置随机种子的函数
+    """
+    global seed_refresh_timer, seed_refresh_interval
+
+    # 使用当前时间作为新种子
+    current_time = int(time.time() * 1000000)  # 微秒级时间戳
+    random.seed(current_time)
+
+    # 生成几个随机数来验证新种子
+    test_numbers = [random.randint(1, 100) for _ in range(3)]
+
+    print("=== 随机种子重新设置 ===")
+    print(f"[DEBUG] 时间戳: {current_time}")
+    print(f"[DEBUG] 测试随机数: {test_numbers}")
+    print(f"[DEBUG] 下次重新设置将在 {SEED_REFRESH_MINUTES} 分钟后")
+    print("=" * 30)
+
+    # 重新启动定时器
+    seed_refresh_timer = root.after(seed_refresh_interval, reseed_random)
+
+
+def handle_button_click(event, action_func):
+    """
+    处理按钮点击事件，检测双击并执行相应操作
+    :param event: 事件对象
+    :param action_func: 要执行的操作函数
+    """
+    global last_button_click_time, double_click_threshold
+
+    current_time = time.time() * 1000  # 转换为毫秒
+    time_diff = current_time - last_button_click_time
+
+    print(f"[DEBUG] 按钮点击 - 时间差: {time_diff:.0f}ms")
+
+    if time_diff < double_click_threshold:
+        # 双击检测 - 视为单次操作
+        print("[DEBUG] 检测到双击，执行单次操作")
+        last_button_click_time = 0  # 重置时间戳，防止连续双击
+    else:
+        # 普通点击
+        print("[DEBUG] 普通点击，执行操作")
+        last_button_click_time = current_time
+        action_func()  # 执行操作
 
 
 def show_window(name, image_name, color, voice, s_read, s_read_str, parent_window=None):
@@ -744,6 +883,10 @@ def openwindow():
     打开抽取名字窗口的函数
     """
     global is_dragging, auto_close_timer
+
+    # 更新点击时间和透明度
+    update_last_click_time()
+
     if is_dragging:
         is_dragging = False
         return
@@ -787,7 +930,10 @@ def openwindow_group():
     打开抽取分组窗口的函数
     """
     global is_dragging, auto_close_timer
-    global is_dragging
+
+    # 更新点击时间和透明度
+    update_last_click_time()
+
     if is_dragging:
         is_dragging = False
         return
@@ -935,23 +1081,25 @@ def move():
         root.unbind("<ButtonRelease-1>")
 
 # 修改按钮背景色和样式
-button_name = Button(root, 
-                    width=50, 
-                    height=3, 
-                    command=openwindow,
+button_name = Button(root,
+                    width=50,
+                    height=3,
                     bg='lightblue',  # 改为浅蓝色使按钮可见
                     activebackground='skyblue',
                     relief='raised')  # 添加凸起效果
 button_name.pack()
 
-button_group = Button(root, 
-                     width=50, 
-                     height=2, 
-                     command=openwindow_group, 
+button_group = Button(root,
+                     width=50,
+                     height=2,
                      bg='lightcoral',  # 改为浅珊瑚色
                      activebackground='coral',
                      relief='raised')  # 添加凸起效果
 button_group.pack()
+
+# 为按钮添加点击事件绑定（支持双击检测）
+button_name.bind('<Button-1>', lambda event: handle_button_click(event, openwindow))
+button_group.bind('<Button-1>', lambda event: handle_button_click(event, openwindow_group))
 
 # 添加任务栏图标支持
 import ctypes
@@ -964,6 +1112,8 @@ def showPopoutMenu(w, menu):
     :param menu: 要展示的菜单
     """
     def popout(event):
+        # 更新点击时间和透明度（右键菜单也是用户交互）
+        update_last_click_time()
         menu.post(event.x + w.winfo_rootx(), event.y + w.winfo_rooty())
         w.update()
 
@@ -1022,6 +1172,7 @@ def read_config(path):
     读取JSON配置文件的函数
     :param path: 配置文件路径
     """
+    print(f"[DEBUG] 开始读取配置文件: {path}")
     global names, groups, config, leave_list, auto_close_enabled
     try:
         with open(path, 'rb') as f:
@@ -1052,12 +1203,51 @@ def read_config(path):
                 else:
                     auto_close_enabled = True  # 默认开启
                     print("配置文件中未找到auto_close字段，使用默认值True")
-                # 修改启动提示调用方式
-                show_error_popup(
-                    f"程序已开始运行，请使用屏幕左下角的方块按钮来抽取！\n当前使用的配置文件：{os.path.abspath(path)}",
+
+                # 读取种子重设间隔设置（可选字段，默认值为5分钟）
+                global SEED_REFRESH_MINUTES, seed_refresh_interval
+                if 'seed_refresh_minutes' in config:
+                    if isinstance(config['seed_refresh_minutes'], int) and config['seed_refresh_minutes'] > 0:
+                        SEED_REFRESH_MINUTES = config['seed_refresh_minutes']
+                        seed_refresh_interval = SEED_REFRESH_MINUTES * 60000  # 转换为毫秒
+                        print(f"配置文件中设置种子重设间隔为: {SEED_REFRESH_MINUTES}分钟")
+                    else:
+                        print(f"警告：配置文件中的seed_refresh_minutes字段值无效({config['seed_refresh_minutes']})，使用默认值5分钟")
+                else:
+                    print("配置文件中未找到seed_refresh_minutes字段，使用默认值5分钟")
+                # 延迟显示启动提示，避免阻塞随机种子初始化
+                root.after(100, lambda: show_error_popup(
+                    f"程序已开始运行，请使用屏幕右下角的方块按钮来抽取！\n当前使用的配置文件：{os.path.abspath(path)}",
                     close_window=False,
                     auto_close=True  # 添加自动关闭参数
-                )
+                ))
+
+                # 初始化透明度系统
+                global last_click_time
+                last_click_time = time.time()  # 设置初始点击时间
+                print(f"[DEBUG] 透明度系统初始化 - 当前时间: {time.ctime(last_click_time)}")
+                print(f"[DEBUG] 正常透明度: {normal_alpha}, 待机透明度: {idle_alpha}")
+                print(f"[DEBUG] 程序启动时使用待机透明度: {idle_alpha}")
+                root.after(1000, check_transparency_timeout)  # 启动透明度检查定时器
+                print("[DEBUG] 透明度检查定时器已启动")
+
+                # 初始化随机种子系统
+                print("[DEBUG] 初始化随机种子重新设置系统")
+
+                # 立即执行一次重新做种，让用户能立即看到效果
+                print("=== 初始随机种子设置 ===")
+                initial_seed = int(time.time() * 1000000)
+                random.seed(initial_seed)
+
+                # 生成测试随机数
+                initial_test_numbers = [random.randint(1, 100) for _ in range(3)]
+                print(f"[DEBUG] 时间戳: {initial_seed}")
+                print(f"[DEBUG] 测试随机数: {initial_test_numbers}")
+                print("=" * 30)
+
+                # 启动定时器
+                root.after(seed_refresh_interval, reseed_random)  # 启动种子重新设置定时器
+                print(f"[DEBUG] 种子重新设置定时器已启动 - 间隔: {SEED_REFRESH_MINUTES}分钟")
     except Exception as e:
         handle_config_error(e, path)
 
@@ -1214,7 +1404,8 @@ if __name__ == "__main__":
     if not ensure_single_instance():
         print("检测到已有程序实例在运行，当前实例将退出。")
         sys.exit(0)
-    
+
+    print("=== 程序启动 - 准备初始化随机种子系统 ===")
     config_path = "config.json"
     
     # 修改后的主程序入口

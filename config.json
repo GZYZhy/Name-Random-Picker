@@ -28,5 +28,6 @@
             "s_read_str": "示例分组1的朗读名"
         }
     ],
-    "auto_close": true
+    "auto_close": true,
+    "seed_refresh_minutes": 2
 }
