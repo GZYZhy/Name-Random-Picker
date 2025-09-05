@@ -140,6 +140,8 @@ leave_list = []
 now_move = False
 auto_close_enabled = True  # 自动关闭功能默认开启（会从配置文件读取）
 auto_close_timer = None  # 自动关闭定时器
+window = None  # 主显示窗口
+window_image = None  # 图片窗口
 
 # 在全局变量区域添加
 voice_enabled = True
@@ -353,12 +355,12 @@ def auto_close_windows():
         auto_close_timer = None
 
     # 关闭图片窗口（如果有）
-    if have_img and window_image.winfo_exists():
+    if have_img and window_image is not None and window_image.winfo_exists():
         window_image.destroy()
         have_img = False
 
     # 关闭名字窗口（如果有）
-    if have_w and window.winfo_exists():
+    if have_w and window is not None and window.winfo_exists():
         window.destroy()
         have_w = False
 
@@ -995,10 +997,11 @@ def openwindow():
         if auto_close_timer is not None:
             root.after_cancel(auto_close_timer)
             auto_close_timer = None
-        if have_img:
+        if have_img and window_image is not None:
             window_image.destroy()
             have_img = False
-        window.destroy()
+        if window is not None:
+            window.destroy()
         have_w = False
         return
 
@@ -1051,8 +1054,8 @@ def openwindow_group():
     if is_dragging:
         is_dragging = False
         return
-    global window
-    global have_w
+    global window, window_image
+    global have_w, have_img
     global name
     global groups
     global groups_use
@@ -1062,7 +1065,13 @@ def openwindow_group():
         if auto_close_timer is not None:
             root.after_cancel(auto_close_timer)
             auto_close_timer = None
-        window.destroy()
+        # 关闭图片窗口（如果有）
+        if have_img and window_image is not None and window_image.winfo_exists():
+            window_image.destroy()
+            have_img = False
+        # 关闭名字窗口
+        if window is not None and window.winfo_exists():
+            window.destroy()
         have_w = False
         return
 

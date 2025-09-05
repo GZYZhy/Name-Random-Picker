@@ -30,6 +30,6 @@
     ],
     "auto_close": true,
     "seed_refresh_minutes": 2,
-    "personal_mode": "rotation",
+    "personal_mode": "weighted",
     "group_mode": "rotation"
 }
