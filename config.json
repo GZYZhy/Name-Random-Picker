@@ -29,5 +29,7 @@
         }
     ],
     "auto_close": true,
-    "seed_refresh_minutes": 2
+    "seed_refresh_minutes": 2,
+    "personal_mode": "rotation",
+    "group_mode": "rotation"
 }

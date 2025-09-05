@@ -15,7 +15,7 @@ import chardet
 from pathlib import Path
 from tkinter import (
     Tk, Frame, Label, Button, Entry, Text, Menu, Toplevel, StringVar,
-    messagebox, filedialog, ttk, colorchooser, BooleanVar
+    messagebox, filedialog, ttk, colorchooser, BooleanVar, Canvas
 )
 from tkinter.constants import *
 import pandas as pd
@@ -28,6 +28,8 @@ CONFIG_TEMPLATE = {
     "groups": [],
     "auto_close": True,
     "seed_refresh_minutes": 5,
+    "personal_mode": "rotation",
+    "group_mode": "rotation",
     "egg_cases": [],
     "egg_cases_group": []
 }
@@ -48,7 +50,7 @@ class ConfigEditor:
     def __init__(self, root):
         self.root = root
         self.root.title("随机抽签器 - 配置文件编辑器")
-        self.root.geometry("800x600")
+        self.root.geometry("800x650")
         self.root.minsize(800, 600)
     
         # 默认配置文件路径
@@ -276,8 +278,25 @@ class ConfigEditor:
         """创建系统设置标签页"""
         frame = ttk.Frame(self.notebook)
 
+        # 创建滚动条和画布
+        canvas = Canvas(frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # 布局滚动组件
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
         # 设置框架
-        settings_frame = ttk.LabelFrame(frame, text="自动关闭设置", padding=20)
+        settings_frame = ttk.LabelFrame(scrollable_frame, text="系统设置", padding=20)
         settings_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
 
         # 自动关闭开关
@@ -350,6 +369,68 @@ class ConfigEditor:
                                   wraplength=400)
         seed_desc_label.pack(anchor=W, pady=(20, 0))
 
+        # 抽取模式设置
+        ttk.Separator(settings_frame, orient=HORIZONTAL).pack(fill=X, pady=20)
+
+        # 个人抽取模式
+        personal_label = ttk.Label(settings_frame,
+                                 text="个人抽取模式：",
+                                 font=('微软雅黑', 10))
+        personal_label.pack(anchor=W, pady=(0, 10))
+
+        personal_frame = ttk.Frame(settings_frame)
+        personal_frame.pack(anchor=W, pady=(0, 5))
+
+        self.personal_mode_var = StringVar()
+        personal_rotation = ttk.Radiobutton(personal_frame,
+                                          text="轮转模式",
+                                          variable=self.personal_mode_var,
+                                          value="rotation",
+                                          command=self._on_personal_mode_changed)
+        personal_rotation.pack(side=LEFT, padx=(0, 20))
+
+        personal_weighted = ttk.Radiobutton(personal_frame,
+                                           text="加权模式",
+                                           variable=self.personal_mode_var,
+                                           value="weighted",
+                                           command=self._on_personal_mode_changed)
+        personal_weighted.pack(side=LEFT)
+
+        # 小组抽取模式
+        group_label = ttk.Label(settings_frame,
+                               text="小组抽取模式：",
+                               font=('微软雅黑', 10))
+        group_label.pack(anchor=W, pady=(20, 10))
+
+        group_frame = ttk.Frame(settings_frame)
+        group_frame.pack(anchor=W, pady=(0, 5))
+
+        self.group_mode_var = StringVar()
+        group_rotation = ttk.Radiobutton(group_frame,
+                                        text="轮转模式",
+                                        variable=self.group_mode_var,
+                                        value="rotation",
+                                        command=self._on_group_mode_changed)
+        group_rotation.pack(side=LEFT, padx=(0, 20))
+
+        group_weighted = ttk.Radiobutton(group_frame,
+                                        text="加权模式",
+                                        variable=self.group_mode_var,
+                                        value="weighted",
+                                        command=self._on_group_mode_changed)
+        group_weighted.pack(side=LEFT)
+
+        # 模式说明文本
+        mode_desc_text = """抽取模式说明：
+轮转模式：传统的抽取方式，防止重复直到名单轮完
+加权模式：可以重复抽取，但抽中后权重减半，降低再次抽中的概率"""
+
+        mode_desc_label = ttk.Label(settings_frame,
+                                  text=mode_desc_text,
+                                  justify=LEFT,
+                                  wraplength=400)
+        mode_desc_label.pack(anchor=W, pady=(20, 0))
+
         return frame
 
     def _on_auto_close_changed(self):
@@ -384,6 +465,18 @@ class ConfigEditor:
             # 如果输入不是有效数字，恢复到之前的值
             current_value = self.config_data.get('seed_refresh_minutes', 5)
             self.seed_refresh_var.set(str(current_value))
+
+    def _on_personal_mode_changed(self):
+        """处理个人抽取模式变化"""
+        mode = self.personal_mode_var.get()
+        self.config_data['personal_mode'] = mode
+        self.status_bar.config(text=f"个人抽取模式已设置为: {'轮转模式' if mode == 'rotation' else '加权模式'}")
+
+    def _on_group_mode_changed(self):
+        """处理小组抽取模式变化"""
+        mode = self.group_mode_var.get()
+        self.config_data['group_mode'] = mode
+        self.status_bar.config(text=f"小组抽取模式已设置为: {'轮转模式' if mode == 'rotation' else '加权模式'}")
 
     def _create_groups_tab(self):
         """创建分组管理标签页"""
@@ -543,6 +636,13 @@ class ConfigEditor:
         # 设置seed_refresh_minutes输入框的值
         seed_refresh_value = self.config_data.get('seed_refresh_minutes', 5)  # 默认值为5
         self.seed_refresh_var.set(str(seed_refresh_value))
+
+        # 设置抽取模式单选按钮的值
+        personal_mode_value = self.config_data.get('personal_mode', 'rotation')  # 默认值为rotation
+        self.personal_mode_var.set(personal_mode_value)
+
+        group_mode_value = self.config_data.get('group_mode', 'rotation')  # 默认值为rotation
+        self.group_mode_var.set(group_mode_value)
 
     def refresh_egg_data(self, key):
         """刷新彩蛋配置数据"""

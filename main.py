@@ -170,6 +170,14 @@ SEED_REFRESH_MINUTES = 5  # 默认值
 seed_refresh_interval = SEED_REFRESH_MINUTES * 60000  # 转换为毫秒
 seed_refresh_timer = None  # 种子重新设置定时器
 
+# 在全局变量区域添加抽取模式相关变量
+personal_mode = "rotation"  # 个人抽取模式：rotation 或 weighted
+group_mode = "rotation"     # 小组抽取模式：rotation 或 weighted
+personal_weights = {}       # 个人权重字典
+group_weights = {}          # 小组权重字典
+last_personal_selected = None  # 上一个抽到的个人
+last_group_selected = None    # 上一个抽到的小组
+
 # 设置Windows任务栏属性
 if platform.system() == 'Windows':
     import ctypes
@@ -450,6 +458,87 @@ def reseed_random():
 
     # 重新启动定时器
     seed_refresh_timer = root.after(seed_refresh_interval, reseed_random)
+
+
+def initialize_weights():
+    """
+    初始化权重字典的函数
+    """
+    global personal_weights, group_weights, names, groups
+
+    # 初始化个人权重
+    personal_weights = {}
+    for name in names:
+        personal_weights[name] = 1.0  # 初始权重都为1.0
+
+    # 初始化小组权重
+    group_weights = {}
+    for group in groups:
+        group_weights[group] = 1.0  # 初始权重都为1.0
+
+    print(f"[DEBUG] 权重已初始化 - 个人: {len(personal_weights)}个, 小组: {len(group_weights)}个")
+
+
+def weighted_choice(items, weights, exclude_last=None):
+    """
+    基于权重的随机选择函数
+    :param items: 项目列表
+    :param weights: 权重字典
+    :param exclude_last: 要排除的上一个抽到的人
+    :return: 选中的项目
+    """
+    import random
+
+    # 获取有效项目（排除请假人员）
+    valid_items = [item for item in items if item not in leave_list]
+
+    if not valid_items:
+        # 如果没有有效项目，返回None
+        return None
+
+    # 如果只有一个有效项目，直接返回（避免无限循环）
+    if len(valid_items) == 1:
+        return valid_items[0]
+
+    # 排除上一个抽到的人
+    if exclude_last and exclude_last in valid_items:
+        valid_items = [item for item in valid_items if item != exclude_last]
+
+        # 如果排除后没有有效项目了，重新选择（不排除）
+        if not valid_items:
+            valid_items = [item for item in items if item not in leave_list]
+
+    # 获取对应权重
+    valid_weights = [weights.get(item, 1.0) for item in valid_items]
+
+    # 计算权重总和
+    total_weight = sum(valid_weights)
+
+    # 生成随机数
+    rand = random.random() * total_weight
+
+    # 根据权重选择项目
+    cumulative_weight = 0.0
+    for item, weight in zip(valid_items, valid_weights):
+        cumulative_weight += weight
+        if rand <= cumulative_weight:
+            return item
+
+    # 理论上不会到达这里，但为了安全起见
+    return valid_items[-1]
+
+
+def update_weight(weights, selected_item):
+    """
+    更新权重（抽到后权重减半）
+    :param weights: 权重字典
+    :param selected_item: 被抽中的项目
+    """
+    if selected_item in weights:
+        old_weight = weights[selected_item]
+        new_weight = old_weight * 0.5  # 减半
+        weights[selected_item] = new_weight
+        print(f"[DEBUG] 权重更新: {selected_item} ({old_weight:.2f} -> {new_weight:.4f})")
 
 
 def handle_button_click(event, action_func):
@@ -913,14 +1002,39 @@ def openwindow():
         have_w = False
         return
 
-    if names_use == []:
-        names_use = names[:]
+    global personal_mode, personal_weights
 
-    while True:
-        name = random.choice(names_use)
-        names_use.remove(name)
-        if name not in leave_list:
-            break
+    if personal_mode == "rotation":
+        # 轮转模式（原有逻辑）
+        if names_use == []:
+            names_use = names[:]
+
+        while True:
+            name = random.choice(names_use)
+            names_use.remove(name)
+            if name not in leave_list:
+                break
+    elif personal_mode == "weighted":
+        # 加权模式
+        name = weighted_choice(names, personal_weights, last_personal_selected)
+        if name is None:
+            # 如果没有有效项目，提示错误
+            show_error_popup("没有有效的抽取对象（可能所有人都请假了）", close_window=False)
+            return
+        # 更新权重
+        update_weight(personal_weights, name)
+        # 记录这次抽取的结果
+        last_personal_selected = name
+    else:
+        # 默认使用轮转模式
+        if names_use == []:
+            names_use = names[:]
+
+        while True:
+            name = random.choice(names_use)
+            names_use.remove(name)
+            if name not in leave_list:
+                break
 
     egg_show(name)
 
@@ -952,11 +1066,33 @@ def openwindow_group():
         have_w = False
         return
 
-    if groups_use == []:
-        groups_use = groups[:]
+    global group_mode, group_weights
 
-    name = random.choice(groups_use)
-    groups_use.remove(name)
+    if group_mode == "rotation":
+        # 轮转模式（原有逻辑）
+        if groups_use == []:
+            groups_use = groups[:]
+
+        name = random.choice(groups_use)
+        groups_use.remove(name)
+    elif group_mode == "weighted":
+        # 加权模式
+        name = weighted_choice(groups, group_weights, last_group_selected)
+        if name is None:
+            # 如果没有有效项目，提示错误
+            show_error_popup("没有有效的小组抽取对象", close_window=False)
+            return
+        # 更新权重
+        update_weight(group_weights, name)
+        # 记录这次抽取的结果
+        last_group_selected = name
+    else:
+        # 默认使用轮转模式
+        if groups_use == []:
+            groups_use = groups[:]
+
+        name = random.choice(groups_use)
+        groups_use.remove(name)
 
     egg_show(name,"group")
 
@@ -966,9 +1102,15 @@ def reset():
     重置名字列表的函数
     """
     print('已重置个人抽取记忆')
-    global names
-    global names_use
+    global names, names_use, personal_weights
     names_use = names[:]
+
+    # 如果是加权模式，重置权重
+    if personal_mode == "weighted":
+        initialize_weights()
+        print('已重置个人权重')
+        global last_personal_selected
+        last_personal_selected = None  # 重置上一个抽取记录
 
 
 def reset_group():
@@ -976,9 +1118,15 @@ def reset_group():
     重置分组列表的函数
     """
     print('已重置小组抽取记忆')
-    global groups
-    global groups_use
+    global groups, groups_use, group_weights
     groups_use = groups[:]
+
+    # 如果是加权模式，重置权重
+    if group_mode == "weighted":
+        initialize_weights()
+        print('已重置小组权重')
+        global last_group_selected
+        last_group_selected = None  # 重置上一个抽取记录
 
 
 def egg_set():
@@ -1215,6 +1363,29 @@ def read_config(path):
                         print(f"警告：配置文件中的seed_refresh_minutes字段值无效({config['seed_refresh_minutes']})，使用默认值5分钟")
                 else:
                     print("配置文件中未找到seed_refresh_minutes字段，使用默认值5分钟")
+
+                # 读取抽取模式设置（可选字段，默认值为rotation）
+                global personal_mode, group_mode
+                if 'personal_mode' in config:
+                    if config['personal_mode'] in ['rotation', 'weighted']:
+                        personal_mode = config['personal_mode']
+                        print(f"配置文件中设置个人抽取模式为: {personal_mode}")
+                    else:
+                        print(f"警告：配置文件中的personal_mode字段值无效({config['personal_mode']})，使用默认值rotation")
+                else:
+                    print("配置文件中未找到personal_mode字段，使用默认值rotation")
+
+                if 'group_mode' in config:
+                    if config['group_mode'] in ['rotation', 'weighted']:
+                        group_mode = config['group_mode']
+                        print(f"配置文件中设置小组抽取模式为: {group_mode}")
+                    else:
+                        print(f"警告：配置文件中的group_mode字段值无效({config['group_mode']})，使用默认值rotation")
+                else:
+                    print("配置文件中未找到group_mode字段，使用默认值rotation")
+
+                # 初始化权重（在所有配置读取完成后）
+                initialize_weights()
                 # 延迟显示启动提示，避免阻塞随机种子初始化
                 root.after(100, lambda: show_error_popup(
                     f"程序已开始运行，请使用屏幕右下角的方块按钮来抽取！\n当前使用的配置文件：{os.path.abspath(path)}",
