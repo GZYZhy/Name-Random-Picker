@@ -27,6 +27,7 @@ CONFIG_TEMPLATE = {
     "names": [],
     "groups": [],
     "auto_close": True,
+    "seed_refresh_minutes": 5,
     "egg_cases": [],
     "egg_cases_group": []
 }
@@ -309,6 +310,46 @@ class ConfigEditor:
                              wraplength=400)
         desc_label.pack(anchor=W, pady=(20, 0))
 
+        # 种子重设间隔设置
+        ttk.Separator(settings_frame, orient=HORIZONTAL).pack(fill=X, pady=20)
+
+        seed_refresh_label = ttk.Label(settings_frame,
+                                     text="随机种子重设间隔：",
+                                     font=('微软雅黑', 10))
+        seed_refresh_label.pack(anchor=W, pady=(0, 10))
+
+        # 创建种子重设间隔输入框
+        seed_frame = ttk.Frame(settings_frame)
+        seed_frame.pack(anchor=W, pady=(0, 5))
+
+        self.seed_refresh_var = StringVar()
+        seed_entry = ttk.Entry(seed_frame,
+                              textvariable=self.seed_refresh_var,
+                              width=10,
+                              font=('微软雅黑', 10))
+        seed_entry.pack(side=LEFT)
+
+        seed_unit_label = ttk.Label(seed_frame,
+                                   text="分钟",
+                                   font=('微软雅黑', 10))
+        seed_unit_label.pack(side=LEFT, padx=(5, 0))
+
+        # 绑定输入验证和变化事件
+        self.seed_refresh_var.trace_add('write', self._on_seed_refresh_changed)
+
+        # 种子重设说明文本
+        seed_desc_text = """说明：
+• 设置随机种子自动重设的时间间隔
+• 建议值：1-30分钟，默认5分钟
+• 间隔越短随机性越好，但会略微增加CPU开销
+• 可以提高长时间运行程序的随机性"""
+
+        seed_desc_label = ttk.Label(settings_frame,
+                                  text=seed_desc_text,
+                                  justify=LEFT,
+                                  wraplength=400)
+        seed_desc_label.pack(anchor=W, pady=(20, 0))
+
         return frame
 
     def _on_auto_close_changed(self):
@@ -319,6 +360,30 @@ class ConfigEditor:
         # 更新状态栏
         status = "开启" if self.auto_close_var.get() else "关闭"
         self.status_bar.config(text=f"自动关闭功能已{status}")
+
+    def _on_seed_refresh_changed(self, *args):
+        """处理种子重设间隔输入框变化"""
+        try:
+            value = self.seed_refresh_var.get().strip()
+            if value == "":
+                return
+
+            minutes = int(value)
+            if minutes < 1:
+                minutes = 1
+                self.seed_refresh_var.set("1")
+            elif minutes > 1440:  # 最多24小时
+                minutes = 1440
+                self.seed_refresh_var.set("1440")
+
+            # 更新配置数据
+            self.config_data['seed_refresh_minutes'] = minutes
+            self.status_bar.config(text=f"种子重设间隔已设置为: {minutes}分钟")
+
+        except ValueError:
+            # 如果输入不是有效数字，恢复到之前的值
+            current_value = self.config_data.get('seed_refresh_minutes', 5)
+            self.seed_refresh_var.set(str(current_value))
 
     def _create_groups_tab(self):
         """创建分组管理标签页"""
@@ -474,6 +539,10 @@ class ConfigEditor:
         # 设置auto_close复选框的状态
         auto_close_value = self.config_data.get('auto_close', True)  # 默认值为True
         self.auto_close_var.set(auto_close_value)
+
+        # 设置seed_refresh_minutes输入框的值
+        seed_refresh_value = self.config_data.get('seed_refresh_minutes', 5)  # 默认值为5
+        self.seed_refresh_var.set(str(seed_refresh_value))
 
     def refresh_egg_data(self, key):
         """刷新彩蛋配置数据"""
