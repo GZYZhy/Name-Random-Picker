@@ -4,11 +4,9 @@ coding: utf-8
 GitHub: https://github.com/gzyzhy/Name-Random-Picker
 """
 
-print("=== 程序开始加载模块 ===")
 import json
 import os
 import random
-print(f"[DEBUG] random模块已加载，当前种子状态: {random.getstate() is not None}")
 import threading
 import time
 from tkinter import *
@@ -365,7 +363,7 @@ def auto_close_windows():
         window.destroy()
         have_w = False
 
-    print("自动关闭展示窗口")
+    print("[INFO] 自动关闭展示窗口")
 
 
 def set_window_transparency(alpha):
@@ -375,9 +373,8 @@ def set_window_transparency(alpha):
     """
     try:
         root.attributes('-alpha', alpha)
-        print(f"[DEBUG] 窗口透明度已设置为: {alpha}")
     except Exception as e:
-        print(f"[DEBUG] 设置透明度失败: {e}")
+        print(f"[ERROR] 设置透明度失败: {e}")
 
 
 def switch_to_idle_transparency():
@@ -386,7 +383,7 @@ def switch_to_idle_transparency():
     """
     global idle_alpha
     set_window_transparency(idle_alpha)
-    print(f"切换到待机透明度: {idle_alpha}")
+    print(f"[INFO] 切换到待机透明度: {idle_alpha}")
 
 
 def switch_to_normal_transparency():
@@ -395,7 +392,7 @@ def switch_to_normal_transparency():
     """
     global normal_alpha
     set_window_transparency(normal_alpha)
-    print(f"切换到正常透明度: {normal_alpha}")
+    print(f"[INFO] 切换到正常透明度: {normal_alpha}")
 
 
 def check_transparency_timeout():
@@ -406,14 +403,11 @@ def check_transparency_timeout():
 
     current_time = time.time()
     time_diff = current_time - last_click_time
-    print(f"[DEBUG] 检查透明度超时 - 当前时间差: {time_diff:.1f}秒")
 
     if time_diff >= 10:  # 10秒超时
-        print("[DEBUG] 达到10秒超时，切换到待机透明度")
         switch_to_idle_transparency()
     else:
         # 还没到10秒，继续检查
-        print(f"[DEBUG] 未达到超时，继续等待 - 剩余{10 - time_diff:.1f}秒")
         transparency_timer = root.after(1000, check_transparency_timeout)
 
 
@@ -424,19 +418,15 @@ def update_last_click_time():
     global last_click_time, transparency_timer
 
     last_click_time = time.time()
-    print(f"[DEBUG] 更新最后点击时间: {time.ctime(last_click_time)}")
-    print(f"[DEBUG] 当前时间戳: {last_click_time}")
 
     # 切换到正常透明度
     switch_to_normal_transparency()
 
     # 取消之前的定时器
     if transparency_timer is not None:
-        print("[DEBUG] 取消之前的透明度定时器")
         root.after_cancel(transparency_timer)
 
     # 重新启动定时器
-    print("[DEBUG] 重新启动透明度检查定时器")
     transparency_timer = root.after(1000, check_transparency_timeout)
 
 
@@ -453,11 +443,7 @@ def reseed_random():
     # 生成几个随机数来验证新种子
     test_numbers = [random.randint(1, 100) for _ in range(3)]
 
-    print("=== 随机种子重新设置 ===")
-    print(f"[DEBUG] 时间戳: {current_time}")
-    print(f"[DEBUG] 测试随机数: {test_numbers}")
-    print(f"[DEBUG] 下次重新设置将在 {SEED_REFRESH_MINUTES} 分钟后")
-    print("=" * 30)
+    print(f"[INFO] 随机种子已重新设置，下次重设将在 {SEED_REFRESH_MINUTES} 分钟后")
 
     # 重新启动定时器
     seed_refresh_timer = root.after(seed_refresh_interval, reseed_random)
@@ -479,7 +465,7 @@ def initialize_weights():
     for group in groups:
         group_weights[group] = 1.0  # 初始权重都为1.0
 
-    print(f"[DEBUG] 权重已初始化 - 个人: {len(personal_weights)}个, 小组: {len(group_weights)}个")
+    print(f"[INFO] 权重已初始化 - 个人: {len(personal_weights)}个, 小组: {len(group_weights)}个")
 
 
 def weighted_choice(items, weights, exclude_last=None):
@@ -555,15 +541,11 @@ def handle_button_click(event, action_func):
     current_time = time.time() * 1000  # 转换为毫秒
     time_diff = current_time - last_button_click_time
 
-    print(f"[DEBUG] 按钮点击 - 时间差: {time_diff:.0f}ms")
-
     if time_diff < double_click_threshold:
         # 双击检测 - 视为单次操作
-        print("[DEBUG] 检测到双击，执行单次操作")
         last_button_click_time = 0  # 重置时间戳，防止连续双击
     else:
         # 普通点击
-        print("[DEBUG] 普通点击，执行操作")
         last_button_click_time = current_time
         action_func()  # 执行操作
 
@@ -1181,15 +1163,14 @@ def cleanup_and_exit():
     if tray_icon_instance is not None:
         try:
             tray_icon_instance.stop()
-            print("[DEBUG] 托盘图标已停止")
         except Exception as e:
-            print(f"[DEBUG] 停止托盘图标时出错: {e}")
+            print(f"[ERROR] 停止托盘图标时出错: {e}")
 
     # 销毁主窗口
     try:
         root.destroy()
     except Exception as e:
-        print(f"[DEBUG] 销毁主窗口时出错: {e}")
+        print(f"[ERROR] 销毁主窗口时出错: {e}")
 
     # 正常退出
     os._exit(0)
@@ -1353,7 +1334,7 @@ def read_config(path):
     读取JSON配置文件的函数
     :param path: 配置文件路径
     """
-    print(f"[DEBUG] 开始读取配置文件: {path}")
+    print(f"[INFO] 正在读取配置文件: {path}")
     global names, groups, config, leave_list, auto_close_enabled
     try:
         with open(path, 'rb') as f:
@@ -1381,10 +1362,10 @@ def read_config(path):
                     if isinstance(config['auto_close'], bool):
                         auto_close_enabled = config['auto_close']
                     else:
-                        print(f"警告：配置文件中的auto_close字段值无效({config['auto_close']})，使用默认值True")
+                        print(f"[WARN] 配置文件auto_close字段无效，使用默认值")
                 else:
                     auto_close_enabled = True  # 默认开启
-                    print("配置文件中未找到auto_close字段，使用默认值True")
+                    print("[INFO] 使用默认自动关闭设置")
 
                 # 读取种子重设间隔设置（可选字段，默认值为5分钟）
                 global SEED_REFRESH_MINUTES, seed_refresh_interval
@@ -1394,29 +1375,29 @@ def read_config(path):
                         seed_refresh_interval = SEED_REFRESH_MINUTES * 60000  # 转换为毫秒
                         print(f"配置文件中设置种子重设间隔为: {SEED_REFRESH_MINUTES}分钟")
                     else:
-                        print(f"警告：配置文件中的seed_refresh_minutes字段值无效({config['seed_refresh_minutes']})，使用默认值5分钟")
+                        print(f"[WARN] 配置文件seed_refresh_minutes字段无效，使用默认值")
                 else:
-                    print("配置文件中未找到seed_refresh_minutes字段，使用默认值5分钟")
+                    print("[INFO] 使用默认种子重设间隔")
 
                 # 读取抽取模式设置（可选字段，默认值为rotation）
                 global personal_mode, group_mode
                 if 'personal_mode' in config:
                     if config['personal_mode'] in ['rotation', 'weighted']:
                         personal_mode = config['personal_mode']
-                        print(f"配置文件中设置个人抽取模式为: {personal_mode}")
+                        print(f"[INFO] 个人抽取模式: {personal_mode}")
                     else:
-                        print(f"警告：配置文件中的personal_mode字段值无效({config['personal_mode']})，使用默认值rotation")
+                        print(f"[WARN] 配置文件personal_mode字段无效，使用默认值")
                 else:
-                    print("配置文件中未找到personal_mode字段，使用默认值rotation")
+                    print("[INFO] 使用默认个人抽取模式")
 
                 if 'group_mode' in config:
                     if config['group_mode'] in ['rotation', 'weighted']:
                         group_mode = config['group_mode']
-                        print(f"配置文件中设置小组抽取模式为: {group_mode}")
+                        print(f"[INFO] 小组抽取模式: {group_mode}")
                     else:
-                        print(f"警告：配置文件中的group_mode字段值无效({config['group_mode']})，使用默认值rotation")
+                        print(f"[WARN] 配置文件group_mode字段无效，使用默认值")
                 else:
-                    print("配置文件中未找到group_mode字段，使用默认值rotation")
+                    print("[INFO] 使用默认小组抽取模式")
 
                 # 初始化权重（在所有配置读取完成后）
                 initialize_weights()
@@ -1430,29 +1411,16 @@ def read_config(path):
                 # 初始化透明度系统
                 global last_click_time
                 last_click_time = time.time()  # 设置初始点击时间
-                print(f"[DEBUG] 透明度系统初始化 - 当前时间: {time.ctime(last_click_time)}")
-                print(f"[DEBUG] 正常透明度: {normal_alpha}, 待机透明度: {idle_alpha}")
-                print(f"[DEBUG] 程序启动时使用待机透明度: {idle_alpha}")
                 root.after(1000, check_transparency_timeout)  # 启动透明度检查定时器
-                print("[DEBUG] 透明度检查定时器已启动")
 
                 # 初始化随机种子系统
-                print("[DEBUG] 初始化随机种子重新设置系统")
-
                 # 立即执行一次重新做种，让用户能立即看到效果
-                print("=== 初始随机种子设置 ===")
                 initial_seed = int(time.time() * 1000000)
                 random.seed(initial_seed)
 
-                # 生成测试随机数
-                initial_test_numbers = [random.randint(1, 100) for _ in range(3)]
-                print(f"[DEBUG] 时间戳: {initial_seed}")
-                print(f"[DEBUG] 测试随机数: {initial_test_numbers}")
-                print("=" * 30)
-
                 # 启动定时器
                 root.after(seed_refresh_interval, reseed_random)  # 启动种子重新设置定时器
-                print(f"[DEBUG] 种子重新设置定时器已启动 - 间隔: {SEED_REFRESH_MINUTES}分钟")
+                print("[INFO] 随机种子系统已初始化")
     except Exception as e:
         handle_config_error(e, path)
 
@@ -1612,7 +1580,6 @@ def maintain_topmost():
 # 添加信号处理器来处理意外退出
 import signal
 def signal_handler(signum, frame):
-    print(f"[DEBUG] 收到信号 {signum}，正在清理资源...")
     cleanup_and_exit()
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -1623,7 +1590,7 @@ if __name__ == "__main__":
         print("检测到已有程序实例在运行，当前实例将退出。")
         sys.exit(0)
 
-    print("=== 程序启动 - 准备初始化随机种子系统 ===")
+    print("[INFO] 程序启动中...")
     config_path = "config.json"
     
     # 修改后的主程序入口
@@ -1641,8 +1608,7 @@ if __name__ == "__main__":
     try:
         root.mainloop()
     except KeyboardInterrupt:
-        print("[DEBUG] 检测到键盘中断，正在清理资源...")
         cleanup_and_exit()
     except Exception as e:
-        print(f"[DEBUG] 主循环出现异常: {e}，正在清理资源...")
+        print(f"[ERROR] 主循环异常: {e}")
         cleanup_and_exit()
