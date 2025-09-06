@@ -15,7 +15,8 @@
             "color": "blue",
             "image": "src/sample_image.png",
             "voice": "src/sample_bgm.mp3",
-            "s_read_str": "示例姓名1的朗读名"
+            "s_read_str": "示例姓名1的朗读名",
+            "force": false
         }
     ],
     "egg_cases_group": [

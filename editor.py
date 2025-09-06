@@ -974,14 +974,22 @@ class ConfigEditor:
         # 朗读文本
         read_label = ttk.Label(main_frame, text="朗读文本:")
         read_label.grid(row=5, column=0, sticky=W, padx=5, pady=5)
-        
+
         read_var = StringVar()
         read_entry = ttk.Entry(main_frame, textvariable=read_var, width=30)
         read_entry.grid(row=5, column=1, sticky=W+E, padx=5, pady=5)
-        
+
+        # 强制执行
+        force_label = ttk.Label(main_frame, text="强制执行:")
+        force_label.grid(row=6, column=0, sticky=W, padx=5, pady=5)
+
+        force_var = BooleanVar()
+        force_check = ttk.Checkbutton(main_frame, text="忽略全局彩蛋开关，始终执行此彩蛋", variable=force_var)
+        force_check.grid(row=6, column=1, columnspan=2, sticky=W, padx=5, pady=5)
+
         # 帮助信息
         help_frame = ttk.LabelFrame(main_frame, text="配置说明")
-        help_frame.grid(row=6, column=0, columnspan=3, sticky=W+E, padx=5, pady=10)
+        help_frame.grid(row=7, column=0, columnspan=3, sticky=W+E, padx=5, pady=10)
         
         help_text = """
 · 显示名称: 抽取时显示的文字，留空则显示原姓名/分组名
@@ -989,6 +997,8 @@ class ConfigEditor:
 · 图片路径: 抽取时显示的图片，建议使用PNG格式
 · 语音路径: 抽取时播放的背景音频，支持MP3、WAV格式
 · 朗读文本: 朗读时使用的文字，留空则读取显示名称
+· 强制执行: 勾选后此彩蛋不受全局彩蛋开关影响，始终执行
+· force: 可选布尔值，true表示强制执行，false或省略表示受全局开关控制
         """
         
         help_label = ttk.Label(help_frame, text=help_text, justify=LEFT)
@@ -996,7 +1006,7 @@ class ConfigEditor:
         
         # 操作按钮
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=7, column=0, columnspan=3, pady=10)
+        button_frame.grid(row=8, column=0, columnspan=3, pady=10)
         
         def save_egg_config():
             name = name_var.get()
@@ -1039,7 +1049,11 @@ class ConfigEditor:
                 
             if read_text:
                 egg_config["s_read_str"] = read_text
-            
+
+            # 强制执行设置
+            if force_var.get():
+                egg_config["force"] = True
+
             # 更新配置
             if edit_index is not None:
                 self.config_data[key][edit_index] = egg_config
@@ -1084,6 +1098,7 @@ class ConfigEditor:
             image_var.set(egg_data.get('image', ''))
             voice_var.set(egg_data.get('voice', ''))
             read_var.set(egg_data.get('s_read_str', ''))
+            force_var.set(egg_data.get('force', False))
             
         # 设置对话框大小和位置
         dialog.update_idletasks()
@@ -1880,7 +1895,7 @@ class ConfigEditor:
         title_label.pack(pady=(0, 10))
         
         # 版本信息
-        version_label = ttk.Label(main_frame, text="版本: v4.0.0")
+        version_label = ttk.Label(main_frame, text="版本: v4.3.0")
         version_label.pack(anchor=W)
         
         # 版权信息

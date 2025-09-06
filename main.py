@@ -788,7 +788,7 @@ def show_about():
 
     # 软件信息部分
     about_text = Label(main_frame, 
-        text="随机抽签器 v4.0.0\n"
+        text="随机抽签器 v4.3.0\n"
              "©2019-2024 GZYzhy\n"
              "遵循 Apache 2.0 许可协议发布",
         justify=LEFT)
@@ -878,70 +878,54 @@ def egg_show(name, mode="name", _test_window=None):
     special_read = False
     s_read_str = ''
 
-    if egg:
-        if mode=="name":
-            for special_case in config['egg_cases']:
-                if name == special_case['name']:
-                    if ('new_name' in special_case) and (special_case['new_name'] != ""):
-                        name = special_case['new_name']
-                    if ('color' in special_case) and (special_case['color'] != ""):
-                        # 检查颜色设置是否合规
-                        if (special_case['color'] not in ['black', 'white', 'red', 'green', 'blue', 'yellow', 'purple']):
-                            show_error_popup(f"彩蛋设置中的颜色 {special_case['color']} 不合规,请使用'black','white','red','green','blue','yellow','purple'中的一种")
-                            return
-                        else:
-                            color = special_case['color']
-                    if ('image' in special_case) and (special_case['image'] != ""):
-                        # 检查图片文件是否存在
-                        if (not os.path.exists(special_case['image'])):
-                            show_error_popup(f"找不到彩蛋设置中的图片文件: {special_case['image']}")
-                            return
-                        else:
-                            img = special_case['image']
-                    if ('voice' in special_case) and (special_case['voice'] != ""):
-                        # 检查语音文件是否存在
-                        if (not os.path.exists(special_case['voice'])):
-                            show_error_popup(f"找不到彩蛋设置中的语音文件: {special_case['voice']}")
-                            return
-                        else:
-                            voice += special_case['voice']
-                    if ('s_read_str' in special_case) and (special_case['s_read_str'] != ""):
-                        s_read_str = special_case['s_read_str']
-                    break
+    # 检查是否需要处理彩蛋（全局彩蛋开启 或 当前彩蛋强制执行）
+    should_process_egg = False
+    current_special_case = None
 
-            if s_read_str != '':
-                special_read = True
-            show_window(name, img, color, voice, special_read, s_read_str, _test_window)
+    if mode=="name":
+        for special_case in config['egg_cases']:
+            if name == special_case['name']:
+                current_special_case = special_case
+                # 检查是否强制执行或全局彩蛋开启
+                force_execute = special_case.get('force', False)
+                should_process_egg = force_execute or egg
+                break
+    elif mode=="group":
+        for special_case in config['egg_cases_group']:
+            if name == special_case['name']:
+                current_special_case = special_case
+                # 检查是否强制执行或全局彩蛋开启
+                force_execute = special_case.get('force', False)
+                should_process_egg = force_execute or egg
+                break
 
-        if mode=="group":
-            for special_case in config['egg_cases_group']:
-                if name == special_case['name']:
-                    if ('new_name' in special_case) and (special_case['new_name'] != ""):
-                        name = special_case['new_name']
-                    if ('color' in special_case) and (special_case['color'] != ""):
-                        # 检查颜色设置是否合规
-                        if (special_case['color'] not in ['black', 'white', 'red', 'green', 'blue', 'yellow', 'purple']):
-                            show_error_popup(f"彩蛋设置中的颜色 {special_case['color']} 不合规,请使用'black','white','red','green','blue','yellow','purple'中的一种")
-                            return
-                        else:
-                            color = special_case['color']
-                    if ('image' in special_case) and (special_case['image'] != ""):
-                        # 检查图片文件是否存在
-                        if (not os.path.exists(special_case['image'])):
-                            show_error_popup(f"找不到彩蛋设置中的图片文件: {special_case['image']}")
-                            return
-                        else:
-                            img = special_case['image']
-                    if ('voice' in special_case) and (special_case['voice'] != ""):
-                        # 检查语音文件是否存在
-                        if (not os.path.exists(special_case['voice'])):
-                            show_error_popup(f"找不到彩蛋设置中的语音文件: {special_case['voice']}")
-                            return
-                        else:
-                            voice += special_case['voice']
-                    if ('s_read_str' in special_case) and (special_case['s_read_str'] != ""):
-                        s_read_str = special_case['s_read_str']
-                    break
+    if should_process_egg and current_special_case:
+        special_case = current_special_case
+        if ('new_name' in special_case) and (special_case['new_name'] != ""):
+            name = special_case['new_name']
+        if ('color' in special_case) and (special_case['color'] != ""):
+            # 检查颜色设置是否合规
+            if (special_case['color'] not in ['black', 'white', 'red', 'green', 'blue', 'yellow', 'purple']):
+                show_error_popup(f"彩蛋设置中的颜色 {special_case['color']} 不合规,请使用'black','white','red','green','blue','yellow','purple'中的一种")
+                return
+            else:
+                color = special_case['color']
+        if ('image' in special_case) and (special_case['image'] != ""):
+            # 检查图片文件是否存在
+            if (not os.path.exists(special_case['image'])):
+                show_error_popup(f"找不到彩蛋设置中的图片文件: {special_case['image']}")
+                return
+            else:
+                img = special_case['image']
+        if ('voice' in special_case) and (special_case['voice'] != ""):
+            # 检查语音文件是否存在
+            if (not os.path.exists(special_case['voice'])):
+                show_error_popup(f"找不到彩蛋设置中的语音文件: {special_case['voice']}")
+                return
+            else:
+                voice += special_case['voice']
+        if ('s_read_str' in special_case) and (special_case['s_read_str'] != ""):
+            s_read_str = special_case['s_read_str']
 
             if s_read_str != '':
                 special_read = True
@@ -1492,13 +1476,17 @@ def create_sample_config(parent=None, exit_after=True):
                 "names": ["示例姓名1", "示例姓名2", "示例姓名3"],
                 "groups": ["示例分组1", "示例分组2"],
                 "auto_close": True,  # 自动关闭功能开关，默认开启
+                "seed_refresh_minutes": 5,  # 随机种子刷新间隔（分钟）
+                "personal_mode": "rotation",  # 个人抽取模式：rotation 或 weighted
+                "group_mode": "rotation",    # 小组抽取模式：rotation 或 weighted
                 "egg_cases": [{
                     "name": "示例姓名1",
                     "new_name": "示例姓名1的展示名",
                     "color": "blue",
                     "image": "src/sample_image.png",
                     "voice": "src/sample_bgm.mp3",
-                    "s_read_str": "示例姓名1的朗读名"
+                    "s_read_str": "示例姓名1的朗读名",
+                    "force": False  # 可选：强制执行此彩蛋，忽略全局开关
                 }],
                 "egg_cases_group": [{
                     "name": "示例分组1",
@@ -1506,7 +1494,8 @@ def create_sample_config(parent=None, exit_after=True):
                     "color": "blue",
                     "image": "src/sample_image.png",
                     "voice": "src/sample_bgm.mp3",
-                    "s_read_str": "示例分组1的朗读名"
+                    "s_read_str": "示例分组1的朗读名",
+                    "force": False  # 可选：强制执行此彩蛋，忽略全局开关
                 }]
             }
             with open(file_path, 'w') as f:
