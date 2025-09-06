@@ -43,34 +43,56 @@ from tkinter import messagebox, filedialog, simpledialog
 def ensure_single_instance():
     """
     确保程序只有一个实例在运行，如果检测到已有实例，则退出当前实例
+    使用Windows命名互斥体实现可靠的单实例检查
     """
-    # 端口可以是任意未使用的端口
-    port = 28758
-    
-    try:
-        # 创建一个socket并绑定到本地端口
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # 添加套接字重用选项，解决端口释放后立即重用的问题
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # 设置非阻塞模式
-        sock.setblocking(False)
-        sock.bind(('localhost', port))
-        # 开始监听，这一步很重要，确保端口真正被占用
-        sock.listen(1)
-        # 如果成功绑定，说明是第一个实例
-        # 保持socket打开以维持端口占用
-        # 将socket保存为全局变量以防止被垃圾回收
-        global single_instance_socket
-        single_instance_socket = sock
-        print("程序启动成功，未检测到其他实例。")
-        return True
-    except socket.error as e:
-        # 如果端口已被占用，说明已有一个实例在运行
-        print(f"程序已经在运行，此实例将关闭。错误信息: {e}")
-        # 可以选择通知用户
-        if platform.system() == "Windows":
-            ctypes.windll.user32.MessageBoxW(0, "程序已经在运行中", "提示", 0)
-        return False
+    if platform.system() == "Windows":
+        # Windows平台使用命名互斥体
+        try:
+            # 尝试创建命名互斥体
+            global single_instance_mutex
+            single_instance_mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "NameRandomPicker_SingleInstance_Mutex")
+
+            # 检查是否已经存在
+            last_error = ctypes.windll.kernel32.GetLastError()
+            if last_error == 183:  # ERROR_ALREADY_EXISTS
+                print("程序已经在运行，此实例将关闭。")
+                ctypes.windll.user32.MessageBoxW(0, "程序已经在运行中", "提示", 0)
+                return False
+            elif single_instance_mutex:
+                print("程序启动成功，未检测到其他实例。")
+                return True
+            else:
+                print("[WARN] 创建互斥体失败，将继续运行（可能存在多个实例）")
+                return True
+
+        except Exception as e:
+            print(f"[WARN] 单实例检查失败: {e}，将继续运行")
+            return True
+    else:
+        # 非Windows平台使用socket方法
+        port = 28758
+
+        try:
+            # 创建一个socket并绑定到本地端口
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # 添加套接字重用选项，解决端口释放后立即重用的问题
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # 设置非阻塞模式
+            sock.setblocking(False)
+            sock.bind(('localhost', port))
+            # 开始监听，这一步很重要，确保端口真正被占用
+            sock.listen(1)
+            # 如果成功绑定，说明是第一个实例
+            # 保持socket打开以维持端口占用
+            # 将socket保存为全局变量以防止被垃圾回收
+            global single_instance_socket
+            single_instance_socket = sock
+            print("程序启动成功，未检测到其他实例。")
+            return True
+        except socket.error as e:
+            # 如果端口已被占用，说明已有一个实例在运行
+            print(f"程序已经在运行，此实例将关闭。错误信息: {e}")
+            return False
     
 def edit_config():
     """
@@ -1150,6 +1172,16 @@ def cleanup_and_exit():
         except Exception as e:
             print(f"[ERROR] 停止托盘图标时出错: {e}")
 
+    # 释放Windows互斥体
+    if platform.system() == "Windows":
+        try:
+            global single_instance_mutex
+            if 'single_instance_mutex' in globals() and single_instance_mutex:
+                ctypes.windll.kernel32.ReleaseMutex(single_instance_mutex)
+                ctypes.windll.kernel32.CloseHandle(single_instance_mutex)
+        except Exception as e:
+            print(f"[ERROR] 释放互斥体时出错: {e}")
+
     # 销毁主窗口
     try:
         root.destroy()
@@ -1179,6 +1211,16 @@ def restart_program():
         if tray_icon_instance is not None:
             try:
                 tray_icon_instance.stop()
+            except:
+                pass
+
+        # 释放Windows互斥体
+        if platform.system() == "Windows":
+            try:
+                global single_instance_mutex
+                if 'single_instance_mutex' in globals() and single_instance_mutex:
+                    ctypes.windll.kernel32.ReleaseMutex(single_instance_mutex)
+                    ctypes.windll.kernel32.CloseHandle(single_instance_mutex)
             except:
                 pass
 
