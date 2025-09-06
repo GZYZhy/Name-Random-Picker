@@ -142,6 +142,7 @@ auto_close_enabled = True  # 自动关闭功能默认开启（会从配置文件
 auto_close_timer = None  # 自动关闭定时器
 window = None  # 主显示窗口
 window_image = None  # 图片窗口
+tray_icon_instance = None  # 托盘图标实例
 
 # 在全局变量区域添加
 voice_enabled = True
@@ -164,7 +165,7 @@ transparency_timer = None  # 透明度定时器
 
 # 在全局变量区域添加双击检测相关变量
 last_button_click_time = 0  # 按钮最后一次点击时间
-double_click_threshold = 500  # 双击检测阈值（毫秒）
+double_click_threshold = 350  # 双击检测阈值（毫秒）
 
 # 在全局变量区域添加随机种子重新设置相关变量
 # 种子重新设置间隔配置（单位：分钟，默认5分钟）
@@ -1170,14 +1171,37 @@ def auto_close_set():
     print(f"自动关闭功能: {'开启' if auto_close_enabled else '关闭'}")
 
 
+def cleanup_and_exit():
+    """
+    清理资源并退出程序的函数
+    """
+    global tray_icon_instance
+
+    # 停止托盘图标
+    if tray_icon_instance is not None:
+        try:
+            tray_icon_instance.stop()
+            print("[DEBUG] 托盘图标已停止")
+        except Exception as e:
+            print(f"[DEBUG] 停止托盘图标时出错: {e}")
+
+    # 销毁主窗口
+    try:
+        root.destroy()
+    except Exception as e:
+        print(f"[DEBUG] 销毁主窗口时出错: {e}")
+
+    # 正常退出
+    os._exit(0)
+
 def close(window,close_window=True):
     """
     关闭主窗口并退出程序的函数
     """
-    
+
     window.destroy()
     if close_window:
-        os._exit(0)
+        cleanup_and_exit()
 
 
 def test():
@@ -1344,7 +1368,8 @@ def read_config(path):
                 if validation_errors:
                     error_msg = "配置文件校验失败：\n" + "\n".join(f"• {err}" for err in validation_errors)
                     show_error_popup(error_msg)
-                    os._exit(1)
+                    # 在重读配置时不退出程序，只显示错误
+                    return
                 
                 names = config['names']
                 names_use = names[:]
@@ -1510,12 +1535,14 @@ def create_tray_icon(root, config_path):
     创建系统托盘图标
     :param root: Tkinter根窗口
     """
+    global tray_icon_instance
+
     # 加载图标
     icon_path = resource_path('favicon.ico')
-    
+
     def exit_action(icon):
-        close(root)
-    
+        cleanup_and_exit()
+
     def toggle_window(icon):
         if root.winfo_viewable():
             root.withdraw()
@@ -1524,13 +1551,13 @@ def create_tray_icon(root, config_path):
             root.attributes('-topmost', True)
             root.update()
             root.attributes('-topmost', False)
-    
+
     # 添加一个调度器函数，将操作转发到主线程
     def schedule_to_main_thread(func):
         def wrapper(icon):
             root.after(0, func)  # 使用 after 方法在主线程中执行函数
         return wrapper
-    
+
     # 创建独立的系统托盘菜单项
     menu_items = [
         MenuItem('显示/隐藏', toggle_window),
@@ -1542,10 +1569,10 @@ def create_tray_icon(root, config_path):
         MenuItem('关于', schedule_to_main_thread(show_about)),
         MenuItem('退出', exit_action)
     ]
-    
+
     # 加载图标图像
     image = Image.open(icon_path)
-    
+
     # 创建托盘图标
     tray_icon = Icon(
         "RandomPicker",
@@ -1553,10 +1580,13 @@ def create_tray_icon(root, config_path):
         "随机抽签器",
         PystrayMenu(*menu_items)
     )
-    
+
+    # 存储托盘图标实例
+    tray_icon_instance = tray_icon
+
     # 在新线程中运行托盘图标
     threading.Thread(target=tray_icon.run, daemon=True).start()
-    
+
     return tray_icon
 
 menu = Menu(root)
@@ -1573,12 +1603,20 @@ menu.add_cascade(label='关于', command=show_about)
 menu.add_cascade(label='退出', command=lambda: close(root))
 showPopoutMenu(button_name, menu)
 tray_icon = create_tray_icon(root, config_path)
+
 # 添加定期置顶维持（在mainloop之前）
 def maintain_topmost():
     root.attributes('-topmost', True)
     root.after(1000, maintain_topmost)
-if tray_icon:
-        tray_icon.stop()
+
+# 添加信号处理器来处理意外退出
+import signal
+def signal_handler(signum, frame):
+    print(f"[DEBUG] 收到信号 {signum}，正在清理资源...")
+    cleanup_and_exit()
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 if __name__ == "__main__":
     # 首先检查是否已有实例在运行
     if not ensure_single_instance():
@@ -1598,4 +1636,13 @@ if __name__ == "__main__":
             handle_config_error(e, config_path)
     
     root.after(1000, maintain_topmost)  # 添加定期置顶检查
-    root.mainloop()
+
+    # 启动主事件循环，并添加异常处理
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        print("[DEBUG] 检测到键盘中断，正在清理资源...")
+        cleanup_and_exit()
+    except Exception as e:
+        print(f"[DEBUG] 主循环出现异常: {e}，正在清理资源...")
+        cleanup_and_exit()
