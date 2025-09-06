@@ -1175,6 +1175,51 @@ def cleanup_and_exit():
     # 正常退出
     os._exit(0)
 
+def restart_program():
+    """
+    重启程序的函数
+    使用子进程实现完全重启，确保清理所有资源
+    """
+    import subprocess
+    import sys
+
+    print("[INFO] 正在重启程序...")
+
+    # 获取当前程序的完整路径
+    current_exe = sys.executable
+    script_path = os.path.abspath(sys.argv[0])
+
+    try:
+        # 先清理当前进程的资源
+        global tray_icon_instance
+        if tray_icon_instance is not None:
+            try:
+                tray_icon_instance.stop()
+            except:
+                pass
+
+        # 销毁主窗口
+        try:
+            root.destroy()
+        except:
+            pass
+
+        # 启动新进程
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的exe
+            subprocess.Popen([current_exe])
+        else:
+            # 如果是python脚本
+            subprocess.Popen([current_exe, script_path])
+
+        # 退出当前进程
+        os._exit(0)
+
+    except Exception as e:
+        print(f"[ERROR] 重启程序失败: {e}")
+        # 如果重启失败，至少尝试正常退出
+        cleanup_and_exit()
+
 def close(window,close_window=True):
     """
     关闭主窗口并退出程序的函数
@@ -1531,8 +1576,8 @@ def create_tray_icon(root, config_path):
         MenuItem('显示/隐藏', toggle_window),
         MenuItem('重置个人', schedule_to_main_thread(reset)),
         MenuItem('重置小组', schedule_to_main_thread(reset_group)),
-        # 重读配置函数也需要包装
-        MenuItem('重读配置', schedule_to_main_thread(lambda: read_config(config_path))),
+        # 重启程序函数也需要包装
+        MenuItem('重启程序', schedule_to_main_thread(restart_program)),
         MenuItem('编辑配置', schedule_to_main_thread(edit_config)),
         MenuItem('关于', schedule_to_main_thread(show_about)),
         MenuItem('退出', exit_action)
@@ -1565,7 +1610,7 @@ menu.add_cascade(label='重置小组', command=reset_group)
 menu.add_cascade(label='关闭彩蛋', command=egg_set)
 menu.add_cascade(label='关闭自动关闭', command=auto_close_set)
 menu.add_cascade(label='请假名单', command=set_leave_list)
-menu.add_cascade(label='重读配置', command=lambda:read_config(config_path))
+menu.add_cascade(label='重启程序', command=restart_program)
 menu.add_cascade(label='编辑配置', command=edit_config)
 menu.add_cascade(label='关于', command=show_about)
 menu.add_cascade(label='退出', command=lambda: close(root))
