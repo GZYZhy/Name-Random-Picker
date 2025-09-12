@@ -1540,7 +1540,7 @@ def create_sample_config(parent=None, exit_after=True):
                     "force": False  # 可选：强制执行此彩蛋，忽略全局开关
                 }]
             }
-            with open(file_path, 'w') as f:
+            with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(sample_config, f, indent=4, ensure_ascii=False)
             messagebox.showinfo("生成成功", 
                 f"示例配置文件已成功生成在：\n{file_path}\n请按需修改后使用", 
