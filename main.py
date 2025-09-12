@@ -184,7 +184,6 @@ last_click_time = 0  # 最后一次点击时间
 transparency_timer = None  # 透明度定时器
 
 # 在全局变量区域添加双击检测相关变量
-last_button_click_time = 0  # 按钮最后一次点击时间
 double_click_threshold = 350  # 双击检测阈值（毫秒）
 
 # 在全局变量区域添加随机种子重新设置相关变量
@@ -196,6 +195,10 @@ seed_refresh_timer = None  # 种子重新设置定时器
 # 在全局变量区域添加抽取模式相关变量
 personal_mode = "rotation"  # 个人抽取模式：rotation 或 weighted
 group_mode = "rotation"     # 小组抽取模式：rotation 或 weighted
+
+# 防抖相关变量
+debounce_timer = None       # 防抖定时器
+pending_action = None       # 待执行的操作
 personal_weights = {}       # 个人权重字典
 group_weights = {}          # 小组权重字典
 last_personal_selected = None  # 上一个抽到的个人
@@ -275,7 +278,7 @@ def read(name, voice):
     纯本地语音合成方案
     """
     global voice_enabled, error_shown, first_read_successful, read_queue, is_reading
-    
+
     # 彩蛋音频播放不受voice_enabled影响
     if voice and os.path.exists(voice):
         try:
@@ -289,9 +292,12 @@ def read(name, voice):
     if not voice_enabled:
         return
 
+    # 清空之前的朗读队列，只保留最新的请求，避免快速点击时队列累积
+    read_queue.clear()
+
     # 将朗读请求添加到队列
     read_queue.append(name)
-    
+
     # 如果当前没有正在进行的朗读，则开始处理队列
     if not is_reading:
         process_read_queue()
@@ -552,24 +558,33 @@ def update_weight(weights, selected_item):
         print(f"[DEBUG] 权重更新: {selected_item} ({old_weight:.2f} -> {new_weight:.4f})")
 
 
+def execute_pending_action():
+    """
+    执行待处理的按钮操作
+    """
+    global pending_action, debounce_timer
+    if pending_action:
+        pending_action()
+        pending_action = None
+    debounce_timer = None
+
 def handle_button_click(event, action_func):
     """
-    处理按钮点击事件，检测双击并执行相应操作
+    处理按钮点击事件，实现防抖机制，防止快速连续点击
     :param event: 事件对象
     :param action_func: 要执行的操作函数
     """
-    global last_button_click_time, double_click_threshold
+    global debounce_timer, pending_action
 
-    current_time = time.time() * 1000  # 转换为毫秒
-    time_diff = current_time - last_button_click_time
+    # 取消之前的定时器
+    if debounce_timer is not None:
+        root.after_cancel(debounce_timer)
 
-    if time_diff < double_click_threshold:
-        # 双击检测 - 视为单次操作
-        last_button_click_time = 0  # 重置时间戳，防止连续双击
-    else:
-        # 普通点击
-        last_button_click_time = current_time
-        action_func()  # 执行操作
+    # 设置待执行的操作
+    pending_action = action_func
+
+    # 设置新的定时器，延迟200ms执行，以过滤快速连续点击
+    debounce_timer = root.after(200, execute_pending_action)
 
 
 def show_window(name, image_name, color, voice, s_read, s_read_str, parent_window=None):
@@ -1163,7 +1178,18 @@ def cleanup_and_exit():
     """
     清理资源并退出程序的函数
     """
-    global tray_icon_instance
+    global tray_icon_instance, read_queue, is_reading, voice_enabled
+
+    # 停止所有朗读操作
+    try:
+        voice_enabled = False  # 禁用语音功能
+        read_queue.clear()     # 清空朗读队列
+        is_reading = False     # 重置朗读状态
+        # 停止pygame音乐播放
+        if 'mixer' in globals() and mixer.get_init():
+            mixer.music.stop()
+    except Exception as e:
+        print(f"[ERROR] 停止朗读操作时出错: {e}")
 
     # 停止托盘图标
     if tray_icon_instance is not None:
