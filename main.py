@@ -971,11 +971,11 @@ def egg_show(name, mode="name", _test_window=None):
 
             if s_read_str != '':
                 special_read = True
-            show_window(name, img, color, voice, special_read, s_read_str, _test_window)
-    
-        else:
+        show_window(name, img, color, voice, special_read, s_read_str, _test_window)
+
+    else:
         # 不播放任何音频
-            show_window(name, img, color, voice, special_read, s_read_str, _test_window)
+        show_window(name, img, color, voice, special_read, s_read_str, _test_window)
 
 
 def openwindow():
