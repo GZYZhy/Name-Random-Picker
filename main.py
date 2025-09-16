@@ -835,7 +835,7 @@ def show_about():
     from tkinter import ttk
     def open_github():
         import webbrowser
-        webbrowser.open("https://github.com/gzyzhy/Name-Random-Picker")
+        webbrowser.open("https://bgithub.xyz/gzyzhy/Name-Random-Picker")
     
     link = ttk.Label(main_frame, 
                     text="GitHub仓库",
@@ -968,9 +968,9 @@ def egg_show(name, mode="name", _test_window=None):
                 special_read = True
             show_window(name, img, color, voice, special_read, s_read_str, _test_window)
     
-    else:
+        else:
         # 不播放任何音频
-        show_window(name, img, color, voice, special_read, s_read_str, _test_window)
+            show_window(name, img, color, voice, special_read, s_read_str, _test_window)
 
 
 def openwindow():
