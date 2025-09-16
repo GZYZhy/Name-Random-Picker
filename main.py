@@ -1454,9 +1454,10 @@ def read_config(path):
                     # 在重读配置时不退出程序，只显示错误
                     return
                 
-                names = config['names']
+                # 读取姓名和分组列表，并确保所有项目都是字符串类型
+                names = [str(name) for name in config['names']]
                 names_use = names[:]
-                groups = config['groups']
+                groups = [str(group) for group in config['groups']]
                 groups_use = groups[:]
 
                 # 读取自动关闭设置（可选字段，默认值为True）
