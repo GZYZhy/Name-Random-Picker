@@ -496,18 +496,23 @@ def initialize_weights():
     print(f"[INFO] 权重已初始化 - 个人: {len(personal_weights)}个, 小组: {len(group_weights)}个")
 
 
-def weighted_choice(items, weights, exclude_last=None):
+def weighted_choice(items, weights, exclude_last=None, exclude_char=None):
     """
     基于权重的随机选择函数
     :param items: 项目列表
     :param weights: 权重字典
     :param exclude_last: 要排除的上一个抽到的人
+    :param exclude_char: 要排除的字符（仅对个人模式有效）
     :return: 选中的项目
     """
     import random
 
     # 获取有效项目（排除请假人员）
     valid_items = [item for item in items if item not in leave_list]
+
+    # 如果指定了要排除的字符（仅对个人模式），过滤掉包含该字符的项目
+    if exclude_char:
+        valid_items = [item for item in valid_items if exclude_char not in item]
 
     if not valid_items:
         # 如果没有有效项目，返回None
@@ -1019,11 +1024,11 @@ def openwindow():
         while True:
             name = random.choice(names_use)
             names_use.remove(name)
-            if name not in leave_list:
+            if name not in leave_list and "111" not in name:
                 break
     elif personal_mode == "weighted":
         # 加权模式
-        name = weighted_choice(names, personal_weights, last_personal_selected)
+        name = weighted_choice(names, personal_weights, last_personal_selected, "111")
         if name is None:
             # 如果没有有效项目，提示错误
             show_error_popup("没有有效的抽取对象（可能所有人都请假了）", close_window=False)
@@ -1040,7 +1045,7 @@ def openwindow():
         while True:
             name = random.choice(names_use)
             names_use.remove(name)
-            if name not in leave_list:
+            if name not in leave_list and "111" not in name:
                 break
 
     egg_show(name)
