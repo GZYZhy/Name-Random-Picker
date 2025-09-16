@@ -1636,19 +1636,21 @@ class ConfigEditor:
                 groups_list = self.config_data.get('groups', [])
 
                 # 创建统一的"姓名和分组"sheet
-                if names_list:
-                    # 创建姓名数据，分组列可以为空（可选填写）
-                    name_group_data = []
-                    for name in names_list:
-                        name_group_data.append({"姓名": name, "分组": ""})
-                    df_names_groups = pd.DataFrame(name_group_data)
-                    df_names_groups.to_excel(writer, sheet_name='姓名和分组', index=False)
+                # 确保既有姓名又有分组数据都能正确导出
+                name_group_data = []
 
-                # 如果有分组但没有姓名，创建一个只有分组的sheet
-                elif groups_list:
-                    name_group_data = []
-                    for group in groups_list:
+                # 添加所有姓名数据
+                for name in names_list:
+                    name_group_data.append({"姓名": name, "分组": ""})
+
+                # 添加所有分组数据（如果还没有添加过）
+                for group in groups_list:
+                    # 检查是否已经存在相同的分组（避免重复）
+                    if not any(item["分组"] == group for item in name_group_data):
                         name_group_data.append({"姓名": "", "分组": group})
+
+                # 如果有数据，创建DataFrame并写入Excel
+                if name_group_data:
                     df_names_groups = pd.DataFrame(name_group_data)
                     df_names_groups.to_excel(writer, sheet_name='姓名和分组', index=False)
 
