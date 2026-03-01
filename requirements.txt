@@ -1,4 +1,4 @@
-Pillow==11.1.0
+Pillow==12.1.1
 pygame==2.6.1
 pyttsx4==3.0.15
 comtypes==1.4.10
